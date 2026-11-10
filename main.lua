@@ -1,7 +1,7 @@
 --=============================================================
---  MyUI v4 — single-file
---  icon.png с GitHub / fallback rbxassetid
---  Вкладки: user / visual / esp / autofarm / aim
+--  MyUI v7
+--  Вкладки: user / visual / esp / fly / tp / aim
+--  Key-система: квадрат + цифра 100-1000
 --=============================================================
 
 local Players      = game:GetService("Players")
@@ -19,7 +19,7 @@ local camera = Workspace.CurrentCamera
 --  ИКОНКА
 --=============================================================
 local ICON_URL      = "https://raw.githubusercontent.com/lololo444444/lonub/main/icon.png"
-local ICON_FALLBACK = "rbxassetid://0" -- <<< ЗАМЕНИ на ID своей icon.png из Roblox
+local ICON_FALLBACK = "rbxassetid://0" -- <<< ЗАМЕНИ на ID своей icon.png
 
 local function loadIcon()
     if writefile and getcustomasset and game.HttpGet then
@@ -55,23 +55,28 @@ local function stroke(p, color, tr)
 end
 
 --=============================================================
---  КОРНЕВОЙ GUI
+--  КОРНЕВОЙ GUI + KEY-СИСТЕМА (цифра 100-1000)
 --=============================================================
 local gui = new("ScreenGui", {
     Name = "MyUI", ResetOnSpawn = false, IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, playerGui)
 
--- квадратная кнопка по центру
+local keyContainer = new("Frame", {
+    Name = "KeyContainer",
+    Size = UDim2.fromOffset(48 + 8 + 60, 48),
+    Position = UDim2.new(0.5, -58, 0.5, -24),
+    BackgroundTransparency = 1,
+}, gui)
+
 local toggle = new("ImageButton", {
     Name = "Toggle",
     Size = UDim2.fromOffset(48,48),
-    Position = UDim2.new(0.5,-24,0.5,-24),
     BackgroundColor3 = Color3.fromRGB(50,50,50),
     BackgroundTransparency = 0.2,
     Image = ICON_ID or "",
     AutoButtonColor = false, ClipsDescendants = true,
-}, gui)
+}, keyContainer)
 corner(toggle, 8); stroke(toggle)
 
 if not ICON_ID or ICON_ID == "rbxassetid://0" then
@@ -82,17 +87,30 @@ if not ICON_ID or ICON_ID == "rbxassetid://0" then
     }, toggle)
 end
 
--- перетаскивание кнопки
+local captchaValue = math.random(100, 1000)
+local captchaLabel = new("TextLabel", {
+    Name = "CaptchaLabel",
+    Size = UDim2.fromOffset(60, 28),
+    Position = UDim2.new(0, 56, 0.5, -14),
+    BackgroundColor3 = Color3.fromRGB(45,45,45),
+    BackgroundTransparency = 0.2,
+    Text = tostring(captchaValue),
+    TextColor3 = Color3.fromRGB(230,230,230),
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+}, keyContainer)
+corner(captchaLabel, 6); stroke(captchaLabel, Color3.fromRGB(120,120,120), 0.4)
+
 local dragBtn = {active=false, start=nil, startPos=nil}
-toggle.InputBegan:Connect(function(input)
+keyContainer.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragBtn.active = true; dragBtn.start = input.Position; dragBtn.startPos = toggle.Position
+        dragBtn.active = true; dragBtn.start = input.Position; dragBtn.startPos = keyContainer.Position
     end
 end)
 UIS.InputChanged:Connect(function(input)
     if dragBtn.active and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local d = input.Position - dragBtn.start
-        toggle.Position = UDim2.new(dragBtn.startPos.X.Scale, dragBtn.startPos.X.Offset+d.X, dragBtn.startPos.Y.Scale, dragBtn.startPos.Y.Offset+d.Y)
+        keyContainer.Position = UDim2.new(dragBtn.startPos.X.Scale, dragBtn.startPos.X.Offset+d.X, dragBtn.startPos.Y.Scale, dragBtn.startPos.Y.Offset+d.Y)
     end
 end)
 UIS.InputEnded:Connect(function(input)
@@ -119,7 +137,7 @@ corner(topBar, 10)
 new("Frame", {Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,1,-10),
     BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.3, BorderSizePixel = 0}, topBar)
 new("TextLabel", {Size = UDim2.new(1,-70,1,0), Position = UDim2.new(0,12,0,0),
-    BackgroundTransparency = 1, Text = "MyUI v4", TextColor3 = Color3.fromRGB(220,220,220),
+    BackgroundTransparency = 1, Text = "MyUI v7", TextColor3 = Color3.fromRGB(220,220,220),
     Font = Enum.Font.GothamMedium, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, topBar)
 local closeBtn = new("TextButton", {
     Size = UDim2.fromOffset(24,24), Position = UDim2.new(1,-30,0.5,-12),
@@ -155,6 +173,84 @@ new("UIPadding", {PaddingTop = UDim.new(0,8)}, tabBar)
 local content = new("Frame", {Size = UDim2.new(1,-160,1,-52), Position = UDim2.new(0,156,0,40),
     BackgroundColor3 = Color3.fromRGB(28,28,28), BackgroundTransparency = 0.35}, frame)
 corner(content, 8)
+
+--=============================================================
+--  ОКНО ПРОВЕРКИ (ввод цифры)
+--=============================================================
+local captchaSolved = false
+local checkWindow = new("Frame", {
+    Name = "CheckWindow",
+    Size = UDim2.fromOffset(240, 150),
+    Position = UDim2.new(0.5,-120,0.5,-75),
+    BackgroundColor3 = Color3.fromRGB(30,30,30),
+    BackgroundTransparency = 0.1,
+    Visible = false,
+}, gui)
+corner(checkWindow, 10); stroke(checkWindow, Color3.fromRGB(120,120,120), 0.3)
+
+new("TextLabel", {
+    Size = UDim2.new(1,0,0,28), BackgroundTransparency = 1,
+    Text = "Введите число выше", TextColor3 = Color3.fromRGB(220,220,220),
+    Font = Enum.Font.GothamBold, TextSize = 14,
+}, checkWindow)
+
+local checkInput = new("TextBox", {
+    Size = UDim2.new(1,-24,0,30), Position = UDim2.new(0,12,0,40),
+    BackgroundColor3 = Color3.fromRGB(45,45,45),
+    Text = "", PlaceholderText = "например 542",
+    PlaceholderColor3 = Color3.fromRGB(140,140,140),
+    TextColor3 = Color3.fromRGB(220,220,220),
+    Font = Enum.Font.Gotham, TextSize = 14, ClearTextOnFocus = false,
+}, checkWindow)
+corner(checkInput, 6); stroke(checkInput, Color3.fromRGB(100,100,100), 0.5)
+
+local checkBtn = new("TextButton", {
+    Size = UDim2.new(1,-24,0,30), Position = UDim2.new(0,12,0,80),
+    BackgroundColor3 = Color3.fromRGB(60,90,60),
+    Text = "Проверить", TextColor3 = Color3.new(1,1,1),
+    Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false,
+}, checkWindow)
+corner(checkBtn, 6)
+
+local checkError = new("TextLabel", {
+    Size = UDim2.new(1,-24,0,18), Position = UDim2.new(0,12,0,116),
+    BackgroundTransparency = 1, Text = "",
+    TextColor3 = Color3.fromRGB(255,120,120), Font = Enum.Font.Gotham, TextSize = 12,
+}, checkWindow)
+
+local function checkCaptcha()
+    local answer = tonumber(checkInput.Text)
+    if answer == captchaValue then
+        captchaSolved = true
+        checkWindow.Visible = false
+        frame.Visible = true
+        frame.Size = UDim2.fromOffset(620,0)
+        TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(620,420)}):Play()
+    else
+        checkError.Text = "Неверно, попробуй ещё"
+        checkInput.Text = ""
+    end
+end
+checkBtn.MouseButton1Click:Connect(checkCaptcha)
+checkInput.FocusLost:Connect(function(enter) if enter then checkCaptcha() end end)
+
+local function tryOpenMenu()
+    if captchaSolved then
+        if frame.Visible then
+            TweenService:Create(frame, TweenInfo.new(0.15), {Size = UDim2.fromOffset(620,0)}):Play()
+            task.wait(0.15)
+            frame.Visible = false
+            frame.Size = UDim2.fromOffset(620,420)
+        else
+            frame.Visible = true
+            frame.Size = UDim2.fromOffset(620,0)
+            TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(620,420)}):Play()
+        end
+    else
+        checkWindow.Visible = true
+        checkError.Text = ""
+    end
+end
 
 --=============================================================
 --  UI ХЕЛПЕРЫ
@@ -205,6 +301,16 @@ local function makeSection(parent, text, order)
     return new("TextLabel", {Size = UDim2.new(1,-16,0,22), BackgroundTransparency = 1, Text = text,
         TextColor3 = Color3.fromRGB(160,160,160), Font = Enum.Font.GothamBold, TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order or 0}, parent)
+end
+local function makeButton(parent, text, order, callback)
+    local b = new("TextButton", {
+        Size = UDim2.new(1,-16,0,28), BackgroundColor3 = Color3.fromRGB(45,45,45),
+        Text = text, TextColor3 = Color3.fromRGB(220,220,220),
+        Font = Enum.Font.GothamMedium, TextSize = 13, AutoButtonColor = false, LayoutOrder = order or 0,
+    }, parent)
+    corner(b, 6); stroke(b, Color3.fromRGB(100,100,100), 0.6)
+    b.MouseButton1Click:Connect(function() if callback then callback() end end)
+    return b
 end
 local function makeColorSlider(parent, label, order, init, cb)
     local row = new("Frame", {Size = UDim2.new(1,-16,0,24), BackgroundTransparency = 1, LayoutOrder = order}, parent)
@@ -268,9 +374,7 @@ do
         local c = plr.Character or plr.CharacterAdded:Wait()
         return c:FindFirstChildOfClass("Humanoid")
     end
-
     makeSection(userPage, "Внешность (локально)", 1)
-
     makeToggle(userPage, "Фейк Headless", 2, function(on)
         local c = plr.Character; if not c then return end
         local head = c:FindFirstChild("Head"); if not head then return end
@@ -280,8 +384,6 @@ do
             if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = on and 1 or 0 end
         end
     end)
-
-    -- Korblox: меш + fallback-цвет
     makeToggle(userPage, "Фейк Korblox", 3, function(on)
         local c = plr.Character; if not c then return end
         local leg = c:FindFirstChild("RightUpperLeg") or c:FindFirstChild("Right Leg")
@@ -297,8 +399,6 @@ do
             if leg:IsA("BasePart") then leg.Color = Color3.fromRGB(163,162,165) end
         end
     end)
-
-    -- Отключить анимации
     makeToggle(userPage, "Отключить анимации", 4, function(on)
         local c = plr.Character; if not c then return end
         local hum = c:FindFirstChildOfClass("Humanoid"); if not hum then return end
@@ -308,44 +408,6 @@ do
         end
         hum.AnimationPlayed = on and function(track) track:Stop() end or nil
     end)
-
-    -- R6 визуально (без смены RigType)
-    local r6Active = false
-    local originalMeshes = {}
-    local function toR6()
-        local c = plr.Character; if not c then return end
-        for _, name in ipairs({"LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do
-            local part = c:FindFirstChild(name)
-            if part and part:IsA("MeshPart") then
-                originalMeshes[part] = {Size = part.Size, MeshId = part.MeshId}
-                part.MeshId = ""
-                part.Size = Vector3.new(1, 2, 1)
-                part.Material = Enum.Material.SmoothPlastic
-            end
-        end
-        local head = c:FindFirstChild("Head")
-        if head and head:IsA("MeshPart") then
-            originalMeshes[head] = {Size = head.Size, MeshId = head.MeshId}
-            head.MeshId = ""; head.Size = Vector3.new(2,1,1)
-        end
-    end
-    local function toR15()
-        for part, data in pairs(originalMeshes) do
-            if part and part.Parent then
-                part.MeshId = data.MeshId; part.Size = data.Size
-            end
-        end
-        originalMeshes = {}
-    end
-    makeToggle(userPage, "R6 (визуально)", 5, function(on)
-        r6Active = on
-        if on then toR6() else toR15() end
-    end)
-    plr.CharacterAdded:Connect(function()
-        task.wait(0.5)
-        if r6Active then toR6() end
-    end)
-
     makeSection(userPage, "Движение", 10)
     makeInput(userPage, "Скорость", 11, "16", function(v)
         local h = getHum(); if h and tonumber(v) then h.WalkSpeed = tonumber(v) end
@@ -353,8 +415,6 @@ do
     makeInput(userPage, "Прыжок", 12, "50", function(v)
         local h = getHum(); if h and tonumber(v) then h.JumpPower = tonumber(v) end
     end)
-
-    -- Спин с регулировкой
     local spinning = false
     local spinSpeed = 180
     makeToggle(userPage, "Спин по Y", 13, function(on) spinning = on end)
@@ -366,8 +426,6 @@ do
         local c = plr.Character; if not c or not c.PrimaryPart then return end
         c:PivotTo(c:GetPivot() * CFrame.Angles(0, math.rad(spinSpeed)*dt, 0))
     end)
-
-    -- Ходьба спиной под Shift Lock
     local backWalk = false
     makeToggle(userPage, "Идти спиной (Shift Lock)", 15, function(on)
         backWalk = on
@@ -445,63 +503,10 @@ do
         Lighting.FogEnd = 50; Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(220,220,230); Lighting.Brightness = 1.5
     end)
-
-    makeSection(visualPage, "Скайбокс (6 вариантов)", 10)
-    local skyRow = new("Frame", {Size = UDim2.new(1,-16,0,30), BackgroundTransparency = 1, LayoutOrder = 11}, visualPage)
-    new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,4),
-        SortOrder = Enum.SortOrder.LayoutOrder}, skyRow)
-    local skyboxes = {"159454299","159454296","159454293","159454286","159454301","159454320"}
-    for i, id in ipairs(skyboxes) do
-        local b = new("TextButton", {
-            Size = UDim2.fromOffset(30,26), BackgroundColor3 = Color3.fromRGB(50,50,50),
-            Text = tostring(i), TextColor3 = Color3.fromRGB(220,220,220),
-            Font = Enum.Font.GothamBold, TextSize = 12, LayoutOrder = i,
-        }, skyRow)
-        corner(b, 6)
-        b.MouseButton1Click:Connect(function()
-            local sky = Lighting:FindFirstChildOfClass("Sky") or Instance.new("Sky", Lighting)
-            sky.SkyboxBk = "rbxassetid://"..id
-            sky.SkyboxDn = sky.SkyboxBk; sky.SkyboxFt = sky.SkyboxBk
-            sky.SkyboxLf = sky.SkyboxBk; sky.SkyboxRt = sky.SkyboxBk; sky.SkyboxUp = sky.SkyboxBk
-        end)
-    end
-
-    -- Китайская шляпа (size/offset/color)
-    makeSection(visualPage, "Китайская шляпа", 20)
-    local hatEnabled = false
-    local hatState = {size = 3, offset = 1, color = Color3.fromRGB(180,50,50)}
-    local function updateHat()
-        local c = plr.Character; if not c then return end
-        local head = c:FindFirstChild("Head"); if not head then return end
-        local hat = head:FindFirstChild("ChinaHat")
-        if not hatEnabled then if hat then hat:Destroy() end; return end
-        if not hat then
-            hat = Instance.new("Part")
-            hat.Name = "ChinaHat"; hat.Material = Enum.Material.SmoothPlastic
-            hat.CanCollide = false; hat.Massless = true; hat.Anchored = false
-            hat.Parent = c
-            local w = Instance.new("WeldConstraint"); w.Part0 = head; w.Part1 = hat; w.Parent = hat
-        end
-        hat.Size = Vector3.new(hatState.size, 0.3, hatState.size)
-        hat.Color = hatState.color
-        hat.CFrame = head.CFrame * CFrame.new(0, hatState.offset, 0)
-    end
-    makeToggle(visualPage, "Включить шляпу", 21, function(on) hatEnabled = on; updateHat() end)
-    makeInput(visualPage, "Размер", 22, "3", function(v) if tonumber(v) then hatState.size = tonumber(v); updateHat() end end)
-    makeInput(visualPage, "Смещение вверх", 23, "1", function(v) if tonumber(v) then hatState.offset = tonumber(v); updateHat() end end)
-    makeColorSlider(visualPage, "R", 24, 180, function(v) hatState.color = Color3.fromRGB(v, hatState.color.G*255, hatState.color.B*255); updateHat() end)
-    makeColorSlider(visualPage, "G", 25, 50,  function(v) hatState.color = Color3.fromRGB(hatState.color.R*255, v, hatState.color.B*255); updateHat() end)
-    makeColorSlider(visualPage, "B", 26, 50,  function(v) hatState.color = Color3.fromRGB(hatState.color.R*255, hatState.color.G*255, v); updateHat() end)
-    RunService.RenderStepped:Connect(function()
-        if not hatEnabled then return end
-        local c = plr.Character; if not c then return end
-        local head = c:FindFirstChild("Head"); local hat = c:FindFirstChild("ChinaHat")
-        if head and hat then hat.CFrame = head.CFrame * CFrame.new(0, hatState.offset, 0) end
-    end)
 end
 
 --=============================================================
---  ESP — Highlight + Tracer + Skeleton + Nick + HP
+--  ESP
 --=============================================================
 local espPage = addTab("esp", "esp", 3)
 do
@@ -583,19 +588,15 @@ do
                 if not line then
                     local d = makeDrawing("Line", {Thickness = 1.5, Color = espColor, Transparency = 1})
                     if d then tracers[p] = {d} end
-                else
-                    if onScreen then
-                        line[1].From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-                        line[1].To = Vector2.new(screen.X, screen.Y)
-                        line[1].Color = espColor
-                        line[1].Visible = true
-                    else line[1].Visible = false end
-                end
+                elseif onScreen then
+                    line[1].From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
+                    line[1].To = Vector2.new(screen.X, screen.Y)
+                    line[1].Color = espColor; line[1].Visible = true
+                else line[1].Visible = false end
             elseif tracers[p] then
                 for _, d in ipairs(tracers[p]) do if d.Remove then d:Remove() end end
                 tracers[p] = nil
             end
-
             local connections = {
                 {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
                 {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
@@ -618,10 +619,8 @@ do
                         local aS, aOn = camera:WorldToViewportPoint(a.Position)
                         local bS, bOn = camera:WorldToViewportPoint(b.Position)
                         if aOn and bOn then
-                            line.From = Vector2.new(aS.X, aS.Y)
-                            line.To = Vector2.new(bS.X, bS.Y)
-                            line.Color = espColor
-                            line.Visible = true
+                            line.From = Vector2.new(aS.X, aS.Y); line.To = Vector2.new(bS.X, bS.Y)
+                            line.Color = espColor; line.Visible = true
                         else line.Visible = false end
                     end
                 end
@@ -641,7 +640,6 @@ do
     makeToggle(espPage, "Скелет", 3, function(on) showSkeleton = on end)
     makeToggle(espPage, "Ник", 4, function(on) showNick = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
     makeToggle(espPage, "HP-бар", 5, function(on) showHP = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
-
     makeSection(espPage, "Цвет ESP", 10)
     local presetRow = new("Frame", {Size = UDim2.new(1,-16,0,28), BackgroundTransparency = 1, LayoutOrder = 11}, espPage)
     new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,4),
@@ -663,7 +661,6 @@ do
     makeColorSlider(espPage, "R", 12, r, function(v) r=v; upd() end)
     makeColorSlider(espPage, "G", 13, g, function(v) g=v; upd() end)
     makeColorSlider(espPage, "B", 14, b, function(v) b=v; upd() end)
-
     Players.PlayerAdded:Connect(function(p)
         p.CharacterAdded:Connect(function() if espEnabled then buildFor(p) end end)
     end)
@@ -675,92 +672,220 @@ do
 end
 
 --=============================================================
---  AUTOFARM — клик по объекту → телепорт к таким же
+--  FLY
 --=============================================================
-local farmPage = addTab("autofarm", "autofarm", 4)
+local flyPage = addTab("fly", "fly", 4)
 do
-    local farmEnabled = false
-    local pickedName = nil
+    local flying = false
+    local flySpeed = 50
+    local bodyVel, bodyGyro
+    local keys = {W=false,A=false,S=false,D=false,Space=false,Ctrl=false}
 
-    makeSection(farmPage, "1) Нажми на объект в мире", 1)
-    local pickedLabel = new("TextLabel", {Size = UDim2.new(1,-16,0,20), BackgroundTransparency = 1,
-        Text = "Выбрано: —", TextColor3 = Color3.fromRGB(200,200,200),
-        Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 2}, farmPage)
-
-    local pickBtn = new("TextButton", {
-        Size = UDim2.new(1,-16,0,28), BackgroundColor3 = Color3.fromRGB(45,45,45),
-        Text = "Нажми, чтобы выбрать объект", TextColor3 = Color3.fromRGB(220,220,220),
-        Font = Enum.Font.GothamMedium, TextSize = 13, AutoButtonColor = false, LayoutOrder = 3,
-    }, farmPage)
-    corner(pickBtn, 6); stroke(pickBtn, Color3.fromRGB(100,100,100), 0.6)
-
-    local picking = false
-    pickBtn.MouseButton1Click:Connect(function()
-        picking = true; pickBtn.Text = "Кликни по объекту в мире..."
+    UIS.InputBegan:Connect(function(i, gp)
+        if gp then return end
+        local k = i.KeyCode
+        if k == Enum.KeyCode.W then keys.W = true
+        elseif k == Enum.KeyCode.A then keys.A = true
+        elseif k == Enum.KeyCode.S then keys.S = true
+        elseif k == Enum.KeyCode.D then keys.D = true
+        elseif k == Enum.KeyCode.Space then keys.Space = true
+        elseif k == Enum.KeyCode.LeftControl then keys.Ctrl = true end
     end)
-    UIS.InputBegan:Connect(function(input, gp)
-        if gp or not picking then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        local target = plr:GetMouse().Target
-        if target then
-            pickedName = target.Name
-            picking = false
-            pickBtn.Text = "Выбрано: " .. pickedName
-            pickedLabel.Text = "Выбрано: " .. pickedName
-        end
+    UIS.InputEnded:Connect(function(i)
+        local k = i.KeyCode
+        if k == Enum.KeyCode.W then keys.W = false
+        elseif k == Enum.KeyCode.A then keys.A = false
+        elseif k == Enum.KeyCode.S then keys.S = false
+        elseif k == Enum.KeyCode.D then keys.D = false
+        elseif k == Enum.KeyCode.Space then keys.Space = false
+        elseif k == Enum.KeyCode.LeftControl then keys.Ctrl = false end
     end)
 
-    makeSection(farmPage, "2) Запусти телепорт", 10)
-    makeToggle(farmPage, "Автофарм (телепорт раз в 5 сек)", 11, function(on)
-        farmEnabled = on
-        if not on then return end
-        task.spawn(function()
-            while farmEnabled do
-                task.wait(5)
-                if not pickedName then continue end
-                local c = plr.Character
-                if not c or not c.PrimaryPart then continue end
-                local found
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj.Name == pickedName and obj:IsA("BasePart") then found = obj; break end
-                end
-                if found then c:PivotTo(CFrame.new(found.Position + Vector3.new(0,3,0))) end
+    local function startFly()
+        local c = plr.Character; if not c then return end
+        local hrp = c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        local hum = c:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = true end
+        hrp.Anchored = false
+        bodyVel = Instance.new("BodyVelocity")
+        bodyVel.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bodyVel.Velocity = Vector3.zero
+        bodyVel.Parent = hrp
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(1e5,1e5,1e5)
+        bodyGyro.P = 1000; bodyGyro.D = 100
+        bodyGyro.Parent = hrp
+        RunService.Heartbeat:Connect(function()
+            if not flying then
+                if bodyVel then bodyVel:Destroy(); bodyVel = nil end
+                if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
+                if hum then hum.PlatformStand = false end
+                return
             end
+            if not bodyVel or not bodyVel.Parent then return end
+            local camCF = camera.CFrame
+            local move = Vector3.zero
+            if keys.W then move = move + camCF.LookVector end
+            if keys.S then move = move - camCF.LookVector end
+            if keys.A then move = move - camCF.RightVector end
+            if keys.D then move = move + camCF.RightVector end
+            if keys.Space then move = move + Vector3.new(0,1,0) end
+            if keys.Ctrl then move = move - Vector3.new(0,1,0) end
+            if move.Magnitude > 0 then move = move.Unit end
+            bodyVel.Velocity = move * flySpeed
+            bodyGyro.CFrame = camCF
         end)
-    end)
+    end
+    local function stopFly()
+        flying = false
+        if bodyVel then bodyVel:Destroy(); bodyVel = nil end
+        if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
+        local c = plr.Character
+        if c then
+            local hum = c:FindFirstChildOfClass("Humanoid")
+            if hum then hum.PlatformStand = false end
+        end
+    end
 
-    new("TextLabel", {Size = UDim2.new(1,-16,0,40), BackgroundTransparency = 1,
-        Text = "⚠ Телепорт — чит. Только для своей игры / Studio.",
-        TextColor3 = Color3.fromRGB(220,150,150), Font = Enum.Font.Gotham, TextSize = 12,
-        TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 12}, farmPage)
+    makeSection(flyPage, "Fly (WASD + Space/Ctrl)", 1)
+    makeInput(flyPage, "Скорость полёта", 2, "50", function(v)
+        if tonumber(v) then flySpeed = tonumber(v) end
+    end)
+    makeToggle(flyPage, "Fly вкл/выкл", 3, function(on)
+        flying = on
+        if on then startFly() else stopFly() end
+    end)
 end
 
 --=============================================================
---  AIM — на NPC в Workspace (не на реальных игроков)
+--  TELEPORT
 --=============================================================
-local aimPage = addTab("aim", "aim", 5)
+local tpPage = addTab("tp", "tp", 5)
+do
+    makeSection(tpPage, "Телепорт к игроку", 1)
+    local playerList = new("ScrollingFrame", {
+        Size = UDim2.new(1,-16,0,120), BackgroundColor3 = Color3.fromRGB(25,25,25),
+        BackgroundTransparency = 0.4, BorderSizePixel = 0, ScrollBarThickness = 4,
+        LayoutOrder = 2, CanvasSize = UDim2.new(0,0,0,0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    }, tpPage)
+    corner(playerList, 6)
+    new("UIListLayout", {Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder}, playerList)
+    new("UIPadding", {PaddingTop = UDim.new(0,4), PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4)}, playerList)
+
+    local function refreshPlayers()
+        for _, c in ipairs(playerList:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p == plr then continue end
+            local b = new("TextButton", {
+                Size = UDim2.new(1,-4,0,24), BackgroundColor3 = Color3.fromRGB(45,45,45),
+                Text = p.Name, TextColor3 = Color3.fromRGB(220,220,220),
+                Font = Enum.Font.Gotham, TextSize = 13, AutoButtonColor = false,
+            }, playerList)
+            corner(b, 4)
+            b.MouseButton1Click:Connect(function()
+                local c = plr.Character; if not c or not c.PrimaryPart then return end
+                local t = p.Character
+                if t and t:FindFirstChild("HumanoidRootPart") then
+                    c:PivotTo(t.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
+                end
+            end)
+        end
+    end
+    refreshPlayers()
+    Players.PlayerAdded:Connect(refreshPlayers)
+    Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshPlayers() end)
+    makeButton(tpPage, "Обновить список", 3, refreshPlayers)
+
+    makeSection(tpPage, "Телепорт к координатам", 10)
+    local cx, cy, cz = 0, 0, 0
+    makeInput(tpPage, "X", 11, "0", function(v) cx = tonumber(v) or 0 end)
+    makeInput(tpPage, "Y", 12, "0", function(v) cy = tonumber(v) or 0 end)
+    makeInput(tpPage, "Z", 13, "0", function(v) cz = tonumber(v) or 0 end)
+    makeButton(tpPage, "Телепорт", 14, function()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        c:PivotTo(CFrame.new(cx, cy, cz))
+    end)
+
+    makeSection(tpPage, "Клик по месту в мире", 20)
+    local tpClicking = false
+    local tpClickBtn = makeButton(tpPage, "Включить клик-телепорт", 21, function()
+        tpClicking = not tpClicking
+        tpClickBtn.Text = tpClicking and "Выключить клик-телепорт" or "Включить клик-телепорт"
+    end)
+    UIS.InputBegan:Connect(function(input, gp)
+        if gp or not tpClicking then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        local m = plr:GetMouse()
+        if m.Hit then
+            local c = plr.Character; if not c or not c.PrimaryPart then return end
+            c:PivotTo(CFrame.new(m.Hit.Position + Vector3.new(0,3,0)))
+        end
+    end)
+end
+
+--=============================================================
+--  AIM — список игроков на сервере
+--=============================================================
+local aimPage = addTab("aim", "aim", 6)
 do
     local aimEnabled = false
-    local aimTargetName = nil
-    makeSection(aimPage, "Цель — NPC в Workspace", 1)
-    makeInput(aimPage, "Имя NPC", 2, "Dummy", function(v) aimTargetName = v end)
-    makeToggle(aimPage, "Aim (на NPC)", 3, function(on) aimEnabled = on end)
-    RunService.RenderStepped:Connect(function()
-        if not aimEnabled or not aimTargetName or aimTargetName == "" then return end
-        local target
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj.Name == aimTargetName and obj:IsA("Model") then
-                local head = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart")
-                if head and head:IsA("BasePart") then target = head; break end
-            end
+    local aimTarget = nil
+
+    makeSection(aimPage, "Игроки на сервере", 1)
+    local aimList = new("ScrollingFrame", {
+        Size = UDim2.new(1,-16,0,160), BackgroundColor3 = Color3.fromRGB(25,25,25),
+        BackgroundTransparency = 0.4, BorderSizePixel = 0, ScrollBarThickness = 4,
+        LayoutOrder = 2, CanvasSize = UDim2.new(0,0,0,0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    }, aimPage)
+    corner(aimList, 6)
+    new("UIListLayout", {Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder}, aimList)
+    new("UIPadding", {PaddingTop = UDim.new(0,4), PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4)}, aimList)
+
+    local selectedLabel = new("TextLabel", {Size = UDim2.new(1,-16,0,20), BackgroundTransparency = 1,
+        Text = "Выбрано: —", TextColor3 = Color3.fromRGB(200,200,200),
+        Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 3}, aimPage)
+
+    local function refreshAimList()
+        for _, c in ipairs(aimList:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
         end
-        if not target then return end
-        camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Position)
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p == plr then continue end
+            local b = new("TextButton", {
+                Size = UDim2.new(1,-4,0,24), BackgroundColor3 = Color3.fromRGB(45,45,45),
+                Text = p.Name, TextColor3 = Color3.fromRGB(220,220,220),
+                Font = Enum.Font.Gotham, TextSize = 13, AutoButtonColor = false,
+            }, aimList)
+            corner(b, 4)
+            b.MouseButton1Click:Connect(function()
+                aimTarget = p
+                selectedLabel.Text = "Выбрано: " .. p.Name
+            end)
+        end
+    end
+    refreshAimList()
+    Players.PlayerAdded:Connect(refreshAimList)
+    Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshAimList() end)
+    makeButton(aimPage, "Обновить список", 4, refreshAimList)
+
+    makeToggle(aimPage, "Aim вкл/выкл", 5, function(on) aimEnabled = on end)
+
+    RunService.RenderStepped:Connect(function()
+        if not aimEnabled or not aimTarget then return end
+        local char = aimTarget.Character
+        if not char then return end
+        local head = char:FindFirstChild("Head")
+        if not head then return end
+        camera.CFrame = CFrame.lookAt(camera.CFrame.Position, head.Position)
     end)
+
     new("TextLabel", {
-        Size = UDim2.new(1,-16,0,60), BackgroundTransparency = 1,
-        Text = "Работает на NPC (модели с Head/HumanoidRootPart).\n"
-            .. "Aim на реальных игроков — это чит, готовый код не даю.",
+        Size = UDim2.new(1,-16,0,40), BackgroundTransparency = 1,
+        Text = "Камера наводится на голову цели.\nСтрельба идёт по реальному прицелу (не silent aim).",
         TextColor3 = Color3.fromRGB(180,180,180), Font = Enum.Font.Gotham,
         TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 10,
     }, aimPage)
@@ -770,18 +895,6 @@ end
 --  СТАРТ
 --=============================================================
 switchTab("user")
+toggle.MouseButton1Click:Connect(tryOpenMenu)
 
-toggle.MouseButton1Click:Connect(function()
-    if frame.Visible then
-        TweenService:Create(frame, TweenInfo.new(0.15), {Size = UDim2.fromOffset(620,0)}):Play()
-        task.wait(0.15)
-        frame.Visible = false
-        frame.Size = UDim2.fromOffset(620,420)
-    else
-        frame.Visible = true
-        frame.Size = UDim2.fromOffset(620,0)
-        TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(620,420)}):Play()
-    end
-end)
-
-print("[MyUI v4] loaded | icon:", ICON_ID)
+print("[MyUI v7] loaded | icon:", ICON_ID)
