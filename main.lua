@@ -1,7 +1,7 @@
 --=============================================================
---  MyUI v3
---  Изменения: квадратная кнопка по центру, шляпа (size/pos/color),
---  ESP (skeleton/tracer/nick/hp/color), автофарм по клику на парт
+--  MyUI v4 — single-file
+--  icon.png с GitHub / fallback rbxassetid
+--  Вкладки: user / visual / esp / autofarm / aim
 --=============================================================
 
 local Players      = game:GetService("Players")
@@ -19,7 +19,7 @@ local camera = Workspace.CurrentCamera
 --  ИКОНКА
 --=============================================================
 local ICON_URL      = "https://raw.githubusercontent.com/lololo444444/lonub/main/icon.png"
-local ICON_FALLBACK = "rbxassetid://0" -- залей свою и вставь ID
+local ICON_FALLBACK = "rbxassetid://0" -- <<< ЗАМЕНИ на ID своей icon.png из Roblox
 
 local function loadIcon()
     if writefile and getcustomasset and game.HttpGet then
@@ -55,36 +55,34 @@ local function stroke(p, color, tr)
 end
 
 --=============================================================
---  GUI КАРКАС
+--  КОРНЕВОЙ GUI
 --=============================================================
 local gui = new("ScreenGui", {
     Name = "MyUI", ResetOnSpawn = false, IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, playerGui)
 
--- КВАДРАТНАЯ кнопка по центру экрана
+-- квадратная кнопка по центру
 local toggle = new("ImageButton", {
     Name = "Toggle",
     Size = UDim2.fromOffset(48,48),
-    Position = UDim2.new(0.5,-24,0.5,-24),  -- ровно центр
-    AnchorPoint = Vector2.new(0,0),
+    Position = UDim2.new(0.5,-24,0.5,-24),
     BackgroundColor3 = Color3.fromRGB(50,50,50),
     BackgroundTransparency = 0.2,
     Image = ICON_ID or "",
     AutoButtonColor = false, ClipsDescendants = true,
 }, gui)
-corner(toggle, 8)   -- ← квадрат со скруглением 8, а не круг
-stroke(toggle)
+corner(toggle, 8); stroke(toggle)
 
 if not ICON_ID or ICON_ID == "rbxassetid://0" then
     new("TextLabel", {
         Size = UDim2.fromScale(1,1), BackgroundTransparency = 1,
         Text = "UI", TextColor3 = Color3.new(1,1,1),
-        Font = Enum.Font.GothamBold, TextSize = 18,
+        Font = Enum.Font.GothamBold, TextSize = 16,
     }, toggle)
 end
 
--- перетаскивание
+-- перетаскивание кнопки
 local dragBtn = {active=false, start=nil, startPos=nil}
 toggle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -103,7 +101,7 @@ UIS.InputEnded:Connect(function(input)
     end
 end)
 
--- Основное окно
+-- основное окно
 local frame = new("Frame", {
     Name = "Main", Size = UDim2.fromOffset(620,420),
     Position = UDim2.new(0.5,-310,0.5,-210),
@@ -121,7 +119,7 @@ corner(topBar, 10)
 new("Frame", {Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,1,-10),
     BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.3, BorderSizePixel = 0}, topBar)
 new("TextLabel", {Size = UDim2.new(1,-70,1,0), Position = UDim2.new(0,12,0,0),
-    BackgroundTransparency = 1, Text = "MyUI v3", TextColor3 = Color3.fromRGB(220,220,220),
+    BackgroundTransparency = 1, Text = "MyUI v4", TextColor3 = Color3.fromRGB(220,220,220),
     Font = Enum.Font.GothamMedium, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, topBar)
 local closeBtn = new("TextButton", {
     Size = UDim2.fromOffset(24,24), Position = UDim2.new(1,-30,0.5,-12),
@@ -208,7 +206,6 @@ local function makeSection(parent, text, order)
         TextColor3 = Color3.fromRGB(160,160,160), Font = Enum.Font.GothamBold, TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order or 0}, parent)
 end
--- RGB-слайдер
 local function makeColorSlider(parent, label, order, init, cb)
     local row = new("Frame", {Size = UDim2.new(1,-16,0,24), BackgroundTransparency = 1, LayoutOrder = order}, parent)
     new("TextLabel", {Size = UDim2.new(0,26,1,0), BackgroundTransparency = 1, Text = label,
@@ -238,7 +235,7 @@ local function makeColorSlider(parent, label, order, init, cb)
 end
 
 --=============================================================
---  ВКЛАДКИ
+--  СИСТЕМА ВКЛАДОК
 --=============================================================
 local tabs, currentTab = {}, nil
 local function switchTab(name)
@@ -271,7 +268,9 @@ do
         local c = plr.Character or plr.CharacterAdded:Wait()
         return c:FindFirstChildOfClass("Humanoid")
     end
+
     makeSection(userPage, "Внешность (локально)", 1)
+
     makeToggle(userPage, "Фейк Headless", 2, function(on)
         local c = plr.Character; if not c then return end
         local head = c:FindFirstChild("Head"); if not head then return end
@@ -281,17 +280,72 @@ do
             if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = on and 1 or 0 end
         end
     end)
+
+    -- Korblox: меш + fallback-цвет
     makeToggle(userPage, "Фейк Korblox", 3, function(on)
         local c = plr.Character; if not c then return end
-        local leg = c:FindFirstChild("RightUpperLeg") or c:FindFirstChild("Right Leg"); if not leg then return end
+        local leg = c:FindFirstChild("RightUpperLeg") or c:FindFirstChild("Right Leg")
+        if not leg then return end
         if on then
             local m = Instance.new("SpecialMesh")
-            m.MeshType = Enum.MeshType.FileMesh; m.MeshId = "rbxassetid://125447041"
+            m.MeshType = Enum.MeshType.FileMesh
+            m.MeshId = "rbxassetid://1186899558"
             m.Scale = Vector3.new(1,1,1); m.Name = "FakeKorblox"; m.Parent = leg
+            if leg:IsA("BasePart") then leg.Color = Color3.fromRGB(20,20,20) end
         else
             local m = leg:FindFirstChild("FakeKorblox"); if m then m:Destroy() end
+            if leg:IsA("BasePart") then leg.Color = Color3.fromRGB(163,162,165) end
         end
     end)
+
+    -- Отключить анимации
+    makeToggle(userPage, "Отключить анимации", 4, function(on)
+        local c = plr.Character; if not c then return end
+        local hum = c:FindFirstChildOfClass("Humanoid"); if not hum then return end
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do track:Stop() end
+        end
+        hum.AnimationPlayed = on and function(track) track:Stop() end or nil
+    end)
+
+    -- R6 визуально (без смены RigType)
+    local r6Active = false
+    local originalMeshes = {}
+    local function toR6()
+        local c = plr.Character; if not c then return end
+        for _, name in ipairs({"LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do
+            local part = c:FindFirstChild(name)
+            if part and part:IsA("MeshPart") then
+                originalMeshes[part] = {Size = part.Size, MeshId = part.MeshId}
+                part.MeshId = ""
+                part.Size = Vector3.new(1, 2, 1)
+                part.Material = Enum.Material.SmoothPlastic
+            end
+        end
+        local head = c:FindFirstChild("Head")
+        if head and head:IsA("MeshPart") then
+            originalMeshes[head] = {Size = head.Size, MeshId = head.MeshId}
+            head.MeshId = ""; head.Size = Vector3.new(2,1,1)
+        end
+    end
+    local function toR15()
+        for part, data in pairs(originalMeshes) do
+            if part and part.Parent then
+                part.MeshId = data.MeshId; part.Size = data.Size
+            end
+        end
+        originalMeshes = {}
+    end
+    makeToggle(userPage, "R6 (визуально)", 5, function(on)
+        r6Active = on
+        if on then toR6() else toR15() end
+    end)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if r6Active then toR6() end
+    end)
+
     makeSection(userPage, "Движение", 10)
     makeInput(userPage, "Скорость", 11, "16", function(v)
         local h = getHum(); if h and tonumber(v) then h.WalkSpeed = tonumber(v) end
@@ -299,30 +353,47 @@ do
     makeInput(userPage, "Прыжок", 12, "50", function(v)
         local h = getHum(); if h and tonumber(v) then h.JumpPower = tonumber(v) end
     end)
+
+    -- Спин с регулировкой
     local spinning = false
+    local spinSpeed = 180
     makeToggle(userPage, "Спин по Y", 13, function(on) spinning = on end)
+    makeInput(userPage, "Скорость спина (°/сек)", 14, "180", function(v)
+        if tonumber(v) then spinSpeed = tonumber(v) end
+    end)
     RunService.RenderStepped:Connect(function(dt)
         if not spinning then return end
         local c = plr.Character; if not c or not c.PrimaryPart then return end
-        c:PivotTo(c:GetPivot() * CFrame.Angles(0, math.rad(180)*dt, 0))
+        c:PivotTo(c:GetPivot() * CFrame.Angles(0, math.rad(spinSpeed)*dt, 0))
     end)
+
+    -- Ходьба спиной под Shift Lock
     local backWalk = false
-    makeToggle(userPage, "Идти спиной (Shift Lock)", 14, function(on) backWalk = on end)
+    makeToggle(userPage, "Идти спиной (Shift Lock)", 15, function(on)
+        backWalk = on
+        local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.AutoRotate = not on end
+    end)
     RunService.RenderStepped:Connect(function()
         if not backWalk then return end
         local c = plr.Character; if not c then return end
-        local hum = c:FindFirstChildOfClass("Humanoid"); if not hum or not c.PrimaryPart then return end
+        local hum = c:FindFirstChildOfClass("Humanoid"); if not hum then return end
+        local root = c:FindFirstChild("HumanoidRootPart"); if not root then return end
+        if hum.AutoRotate then hum.AutoRotate = false end
         local mv = hum.MoveDirection
         if mv.Magnitude < 0.1 then return end
-        local target = c.PrimaryPart.Position - mv
-        local look = CFrame.lookAt(c.PrimaryPart.Position, target)
-        local cur = c:GetPivot()
-        c:PivotTo(CFrame.new(cur.Position) * (look - look.Position))
+        local look = CFrame.lookAt(root.Position, root.Position - mv)
+        root.CFrame = CFrame.new(root.Position) * look.Rotation
+    end)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+        if h and not backWalk then h.AutoRotate = true end
     end)
 end
 
 --=============================================================
---  VISUAL — включая полноценную шляпу
+--  VISUAL
 --=============================================================
 local visualPage = addTab("visual", "visual", 2)
 do
@@ -395,13 +466,10 @@ do
         end)
     end
 
-    --=========================================================
-    --  КИТАЙСКАЯ ШЛЯПА — с size / offset / color
-    --=========================================================
+    -- Китайская шляпа (size/offset/color)
     makeSection(visualPage, "Китайская шляпа", 20)
     local hatEnabled = false
     local hatState = {size = 3, offset = 1, color = Color3.fromRGB(180,50,50)}
-
     local function updateHat()
         local c = plr.Character; if not c then return end
         local head = c:FindFirstChild("Head"); if not head then return end
@@ -412,27 +480,18 @@ do
             hat.Name = "ChinaHat"; hat.Material = Enum.Material.SmoothPlastic
             hat.CanCollide = false; hat.Massless = true; hat.Anchored = false
             hat.Parent = c
-            local w = Instance.new("WeldConstraint")
-            w.Part0 = head; w.Part1 = hat; w.Parent = hat
+            local w = Instance.new("WeldConstraint"); w.Part0 = head; w.Part1 = hat; w.Parent = hat
         end
         hat.Size = Vector3.new(hatState.size, 0.3, hatState.size)
         hat.Color = hatState.color
         hat.CFrame = head.CFrame * CFrame.new(0, hatState.offset, 0)
     end
     makeToggle(visualPage, "Включить шляпу", 21, function(on) hatEnabled = on; updateHat() end)
-
-    -- Size (слайдер-инпут)
-    makeInput(visualPage, "Размер", 22, "3", function(v)
-        if tonumber(v) then hatState.size = tonumber(v); updateHat() end
-    end)
-    makeInput(visualPage, "Смещение вверх", 23, "1", function(v)
-        if tonumber(v) then hatState.offset = tonumber(v); updateHat() end
-    end)
+    makeInput(visualPage, "Размер", 22, "3", function(v) if tonumber(v) then hatState.size = tonumber(v); updateHat() end end)
+    makeInput(visualPage, "Смещение вверх", 23, "1", function(v) if tonumber(v) then hatState.offset = tonumber(v); updateHat() end end)
     makeColorSlider(visualPage, "R", 24, 180, function(v) hatState.color = Color3.fromRGB(v, hatState.color.G*255, hatState.color.B*255); updateHat() end)
     makeColorSlider(visualPage, "G", 25, 50,  function(v) hatState.color = Color3.fromRGB(hatState.color.R*255, v, hatState.color.B*255); updateHat() end)
     makeColorSlider(visualPage, "B", 26, 50,  function(v) hatState.color = Color3.fromRGB(hatState.color.R*255, hatState.color.G*255, v); updateHat() end)
-
-    -- обновляем позицию шляпы каждый кадр, чтобы не отставала
     RunService.RenderStepped:Connect(function()
         if not hatEnabled then return end
         local c = plr.Character; if not c then return end
@@ -442,7 +501,7 @@ do
 end
 
 --=============================================================
---  ESP — skeleton + tracer + nick + hp + color
+--  ESP — Highlight + Tracer + Skeleton + Nick + HP
 --=============================================================
 local espPage = addTab("esp", "esp", 3)
 do
@@ -458,25 +517,18 @@ do
         for k,v in pairs(props or {}) do d[k] = v end
         return d
     end
-
     local function getChar(p)
         local c = p.Character
         if c and c:FindFirstChild("HumanoidRootPart") then return c end
     end
-
     local function clearAll()
-        for p, h in pairs(highlights) do if h then h:Destroy() end end
-        for p, g in pairs(nickGuis) do if g then g:Destroy() end end
-        for p, g in pairs(hpGuis) do if g then g:Destroy() end end
-        for p, list in pairs(tracers) do
-            for _, d in ipairs(list) do if d and d.Remove then d:Remove() end end
-        end
-        for p, list in pairs(skeletons) do
-            for _, d in ipairs(list) do if d and d.Remove then d:Remove() end end
-        end
+        for _, h in pairs(highlights) do if h then h:Destroy() end end
+        for _, g in pairs(nickGuis) do if g then g:Destroy() end end
+        for _, g in pairs(hpGuis) do if g then g:Destroy() end end
+        for _, list in pairs(tracers) do for _, d in ipairs(list) do if d.Remove then d:Remove() end end end
+        for _, list in pairs(skeletons) do for _, d in ipairs(list) do if d.Remove then d:Remove() end end end
         highlights, nickGuis, hpGuis, tracers, skeletons = {}, {}, {}, {}, {}
     end
-
     local function buildFor(p)
         local char = getChar(p); if not char then return end
         if highlights[p] then highlights[p].Adornee = char else
@@ -488,18 +540,16 @@ do
             highlights[p] = h
         end
         local head = char:FindFirstChild("Head")
-        if head then
-            if showNick and not nickGuis[p] then
-                local bb = Instance.new("BillboardGui", head)
-                bb.Size = UDim2.fromOffset(120,20); bb.StudsOffset = Vector3.new(0,2.5,0); bb.AlwaysOnTop = true
-                local t = Instance.new("TextLabel", bb)
-                t.Size = UDim2.fromScale(1,1); t.BackgroundTransparency = 1
-                t.Text = p.Name; t.TextColor3 = Color3.new(1,1,1)
-                t.TextStrokeTransparency = 0.3; t.Font = Enum.Font.GothamBold; t.TextSize = 12
-                nickGuis[p] = bb
-            elseif not showNick and nickGuis[p] then
-                nickGuis[p]:Destroy(); nickGuis[p] = nil
-            end
+        if head and showNick and not nickGuis[p] then
+            local bb = Instance.new("BillboardGui", head)
+            bb.Size = UDim2.fromOffset(120,20); bb.StudsOffset = Vector3.new(0,2.5,0); bb.AlwaysOnTop = true
+            local t = Instance.new("TextLabel", bb)
+            t.Size = UDim2.fromScale(1,1); t.BackgroundTransparency = 1
+            t.Text = p.Name; t.TextColor3 = Color3.new(1,1,1)
+            t.TextStrokeTransparency = 0.3; t.Font = Enum.Font.GothamBold; t.TextSize = 12
+            nickGuis[p] = bb
+        elseif not showNick and nickGuis[p] then
+            nickGuis[p]:Destroy(); nickGuis[p] = nil
         end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if head and hum and showHP and not hpGuis[p] then
@@ -521,7 +571,6 @@ do
         end
     end
 
-    -- периодическое обновление Drawing-элементов (трейсер, скелет)
     RunService.RenderStepped:Connect(function()
         if not espEnabled then return end
         for _, p in ipairs(Players:GetPlayers()) do
@@ -529,28 +578,24 @@ do
             local char = getChar(p); if not char then continue end
             local hrp = char.HumanoidRootPart
             local screen, onScreen = camera:WorldToViewportPoint(hrp.Position)
-            -- tracer
             if showTracer then
                 local line = tracers[p]
                 if not line then
-                    local t = {}
-                    t[1] = makeDrawing("Line", {Thickness = 1.5, Color = espColor, Transparency = 1})
-                    if t[1] then tracers[p] = t end
+                    local d = makeDrawing("Line", {Thickness = 1.5, Color = espColor, Transparency = 1})
+                    if d then tracers[p] = {d} end
                 else
                     if onScreen then
                         line[1].From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
                         line[1].To = Vector2.new(screen.X, screen.Y)
                         line[1].Color = espColor
                         line[1].Visible = true
-                    else
-                        line[1].Visible = false
-                    end
+                    else line[1].Visible = false end
                 end
             elseif tracers[p] then
                 for _, d in ipairs(tracers[p]) do if d.Remove then d:Remove() end end
                 tracers[p] = nil
             end
-            -- skeleton
+
             local connections = {
                 {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
                 {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
@@ -577,9 +622,7 @@ do
                             line.To = Vector2.new(bS.X, bS.Y)
                             line.Color = espColor
                             line.Visible = true
-                        else
-                            line.Visible = false
-                        end
+                        else line.Visible = false end
                     end
                 end
             elseif skeletons[p] then
@@ -589,7 +632,11 @@ do
         end
     end)
 
-    makeToggle(espPage, "ESP (Highlight)", 1, function(on) espEnabled = on; if on then for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end else clearAll() end end)
+    makeToggle(espPage, "ESP (Highlight)", 1, function(on)
+        espEnabled = on
+        if on then for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end
+        else clearAll() end
+    end)
     makeToggle(espPage, "Трейсер", 2, function(on) showTracer = on end)
     makeToggle(espPage, "Скелет", 3, function(on) showSkeleton = on end)
     makeToggle(espPage, "Ник", 4, function(on) showNick = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
@@ -628,7 +675,7 @@ do
 end
 
 --=============================================================
---  AUTOFARM — нажать на парт, потом телепорт к таким же
+--  AUTOFARM — клик по объекту → телепорт к таким же
 --=============================================================
 local farmPage = addTab("autofarm", "autofarm", 4)
 do
@@ -636,8 +683,8 @@ do
     local pickedName = nil
 
     makeSection(farmPage, "1) Нажми на объект в мире", 1)
-    new("TextLabel", {Size = UDim2.new(1,-16,0,20), BackgroundTransparency = 1,
-        Text = "Выбрано: —", Name = "PickedLabel", TextColor3 = Color3.fromRGB(200,200,200),
+    local pickedLabel = new("TextLabel", {Size = UDim2.new(1,-16,0,20), BackgroundTransparency = 1,
+        Text = "Выбрано: —", TextColor3 = Color3.fromRGB(200,200,200),
         Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 2}, farmPage)
 
     local pickBtn = new("TextButton", {
@@ -649,20 +696,17 @@ do
 
     local picking = false
     pickBtn.MouseButton1Click:Connect(function()
-        picking = true
-        pickBtn.Text = "Кликни по объекту в мире..."
+        picking = true; pickBtn.Text = "Кликни по объекту в мире..."
     end)
     UIS.InputBegan:Connect(function(input, gp)
         if gp or not picking then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        local mouse = plr:GetMouse()
-        local target = mouse.Target
+        local target = plr:GetMouse().Target
         if target then
             pickedName = target.Name
             picking = false
             pickBtn.Text = "Выбрано: " .. pickedName
-            local lbl = farmPage:FindFirstChild("PickedLabel")
-            if lbl then lbl.Text = "Выбрано: " .. pickedName end
+            pickedLabel.Text = "Выбрано: " .. pickedName
         end
     end)
 
@@ -680,57 +724,64 @@ do
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj.Name == pickedName and obj:IsA("BasePart") then found = obj; break end
                 end
-                if found then
-                    c:PivotTo(CFrame.new(found.Position + Vector3.new(0,3,0)))
-                end
+                if found then c:PivotTo(CFrame.new(found.Position + Vector3.new(0,3,0))) end
             end
         end)
     end)
 
     new("TextLabel", {Size = UDim2.new(1,-16,0,40), BackgroundTransparency = 1,
-        Text = "⚠ Телепорт — это чит. Только для своей игры / Studio.",
+        Text = "⚠ Телепорт — чит. Только для своей игры / Studio.",
         TextColor3 = Color3.fromRGB(220,150,150), Font = Enum.Font.Gotham, TextSize = 12,
         TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 12}, farmPage)
 end
 
 --=============================================================
---  AIM — демо-алгоритм (без готовой боевой логики)
+--  AIM — на NPC в Workspace (не на реальных игроков)
 --=============================================================
 local aimPage = addTab("aim", "aim", 5)
-new("TextLabel", {
-    Size = UDim2.new(1,-16,0,240), BackgroundTransparency = 1,
-    Text = "Aim — техническая демонстрация.\n\n"
-        .. "Принцип:\n"
-        .. "1) выбрать цель (ник)\n"
-        .. "2) брать Head.WorldPosition каждый кадр\n"
-        .. "3) Camera.CFrame = CFrame.lookAt(cam.Position, targetPos)\n\n"
-        .. "Это чит против других игроков — готовый код\n"
-        .. "не даю. В Studio на своих NPC — вперёд, делай сам.",
-    TextColor3 = Color3.fromRGB(180,180,180), Font = Enum.Font.Gotham,
-    TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
-}, aimPage)
+do
+    local aimEnabled = false
+    local aimTargetName = nil
+    makeSection(aimPage, "Цель — NPC в Workspace", 1)
+    makeInput(aimPage, "Имя NPC", 2, "Dummy", function(v) aimTargetName = v end)
+    makeToggle(aimPage, "Aim (на NPC)", 3, function(on) aimEnabled = on end)
+    RunService.RenderStepped:Connect(function()
+        if not aimEnabled or not aimTargetName or aimTargetName == "" then return end
+        local target
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == aimTargetName and obj:IsA("Model") then
+                local head = obj:FindFirstChild("Head") or obj:FindFirstChild("HumanoidRootPart")
+                if head and head:IsA("BasePart") then target = head; break end
+            end
+        end
+        if not target then return end
+        camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Position)
+    end)
+    new("TextLabel", {
+        Size = UDim2.new(1,-16,0,60), BackgroundTransparency = 1,
+        Text = "Работает на NPC (модели с Head/HumanoidRootPart).\n"
+            .. "Aim на реальных игроков — это чит, готовый код не даю.",
+        TextColor3 = Color3.fromRGB(180,180,180), Font = Enum.Font.Gotham,
+        TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 10,
+    }, aimPage)
+end
 
 --=============================================================
---  СТАРТ + анимация открытия меню
+--  СТАРТ
 --=============================================================
 switchTab("user")
 
 toggle.MouseButton1Click:Connect(function()
     if frame.Visible then
-        -- закрываем
-        TweenService:Create(frame, TweenInfo.new(0.15), {
-            Size = UDim2.fromOffset(620,0),
-        }):Play()
+        TweenService:Create(frame, TweenInfo.new(0.15), {Size = UDim2.fromOffset(620,0)}):Play()
         task.wait(0.15)
         frame.Visible = false
         frame.Size = UDim2.fromOffset(620,420)
     else
         frame.Visible = true
         frame.Size = UDim2.fromOffset(620,0)
-        TweenService:Create(frame, TweenInfo.new(0.2), {
-            Size = UDim2.fromOffset(620,420),
-        }):Play()
+        TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(620,420)}):Play()
     end
 end)
 
-print("[MyUI v3] loaded | icon:", ICON_ID)
+print("[MyUI v4] loaded | icon:", ICON_ID)
