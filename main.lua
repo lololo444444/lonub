@@ -1,7 +1,7 @@
 --=============================================================
---  MyUI v7
---  Вкладки: user / visual / esp / fly / tp / aim
---  Key-система: квадрат + цифра 100-1000
+--  MyUI v8
+--  Вкладки: user / visual / esp / fly / tp / aim / misc
+--  Много функций, без key-системы
 --=============================================================
 
 local Players      = game:GetService("Players")
@@ -55,28 +55,22 @@ local function stroke(p, color, tr)
 end
 
 --=============================================================
---  КОРНЕВОЙ GUI + KEY-СИСТЕМА (цифра 100-1000)
+--  КОРНЕВОЙ GUI + КНОПКА
 --=============================================================
 local gui = new("ScreenGui", {
     Name = "MyUI", ResetOnSpawn = false, IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, playerGui)
 
-local keyContainer = new("Frame", {
-    Name = "KeyContainer",
-    Size = UDim2.fromOffset(48 + 8 + 60, 48),
-    Position = UDim2.new(0.5, -58, 0.5, -24),
-    BackgroundTransparency = 1,
-}, gui)
-
 local toggle = new("ImageButton", {
     Name = "Toggle",
     Size = UDim2.fromOffset(48,48),
+    Position = UDim2.new(0.5,-24,0.5,-24),
     BackgroundColor3 = Color3.fromRGB(50,50,50),
     BackgroundTransparency = 0.2,
     Image = ICON_ID or "",
     AutoButtonColor = false, ClipsDescendants = true,
-}, keyContainer)
+}, gui)
 corner(toggle, 8); stroke(toggle)
 
 if not ICON_ID or ICON_ID == "rbxassetid://0" then
@@ -87,30 +81,16 @@ if not ICON_ID or ICON_ID == "rbxassetid://0" then
     }, toggle)
 end
 
-local captchaValue = math.random(100, 1000)
-local captchaLabel = new("TextLabel", {
-    Name = "CaptchaLabel",
-    Size = UDim2.fromOffset(60, 28),
-    Position = UDim2.new(0, 56, 0.5, -14),
-    BackgroundColor3 = Color3.fromRGB(45,45,45),
-    BackgroundTransparency = 0.2,
-    Text = tostring(captchaValue),
-    TextColor3 = Color3.fromRGB(230,230,230),
-    Font = Enum.Font.GothamBold,
-    TextSize = 16,
-}, keyContainer)
-corner(captchaLabel, 6); stroke(captchaLabel, Color3.fromRGB(120,120,120), 0.4)
-
 local dragBtn = {active=false, start=nil, startPos=nil}
-keyContainer.InputBegan:Connect(function(input)
+toggle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragBtn.active = true; dragBtn.start = input.Position; dragBtn.startPos = keyContainer.Position
+        dragBtn.active = true; dragBtn.start = input.Position; dragBtn.startPos = toggle.Position
     end
 end)
 UIS.InputChanged:Connect(function(input)
     if dragBtn.active and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local d = input.Position - dragBtn.start
-        keyContainer.Position = UDim2.new(dragBtn.startPos.X.Scale, dragBtn.startPos.X.Offset+d.X, dragBtn.startPos.Y.Scale, dragBtn.startPos.Y.Offset+d.Y)
+        toggle.Position = UDim2.new(dragBtn.startPos.X.Scale, dragBtn.startPos.X.Offset+d.X, dragBtn.startPos.Y.Scale, dragBtn.startPos.Y.Offset+d.Y)
     end
 end)
 UIS.InputEnded:Connect(function(input)
@@ -121,8 +101,8 @@ end)
 
 -- основное окно
 local frame = new("Frame", {
-    Name = "Main", Size = UDim2.fromOffset(620,420),
-    Position = UDim2.new(0.5,-310,0.5,-210),
+    Name = "Main", Size = UDim2.fromOffset(660,460),
+    Position = UDim2.new(0.5,-330,0.5,-230),
     BackgroundColor3 = Color3.fromRGB(30,30,30),
     BackgroundTransparency = 0.15, Visible = false,
 }, gui)
@@ -137,7 +117,7 @@ corner(topBar, 10)
 new("Frame", {Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,1,-10),
     BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.3, BorderSizePixel = 0}, topBar)
 new("TextLabel", {Size = UDim2.new(1,-70,1,0), Position = UDim2.new(0,12,0,0),
-    BackgroundTransparency = 1, Text = "MyUI v7", TextColor3 = Color3.fromRGB(220,220,220),
+    BackgroundTransparency = 1, Text = "MyUI v8", TextColor3 = Color3.fromRGB(220,220,220),
     Font = Enum.Font.GothamMedium, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, topBar)
 local closeBtn = new("TextButton", {
     Size = UDim2.fromOffset(24,24), Position = UDim2.new(1,-30,0.5,-12),
@@ -166,7 +146,7 @@ end)
 local tabBar = new("Frame", {Size = UDim2.new(0,140,1,-44), Position = UDim2.new(0,8,0,40),
     BackgroundColor3 = Color3.fromRGB(25,25,25), BackgroundTransparency = 0.3}, frame)
 corner(tabBar, 8)
-new("UIListLayout", {Padding = UDim.new(0,6), SortOrder = Enum.SortOrder.LayoutOrder,
+new("UIListLayout", {Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder,
     HorizontalAlignment = Enum.HorizontalAlignment.Center}, tabBar)
 new("UIPadding", {PaddingTop = UDim.new(0,8)}, tabBar)
 
@@ -175,96 +155,18 @@ local content = new("Frame", {Size = UDim2.new(1,-160,1,-52), Position = UDim2.n
 corner(content, 8)
 
 --=============================================================
---  ОКНО ПРОВЕРКИ (ввод цифры)
---=============================================================
-local captchaSolved = false
-local checkWindow = new("Frame", {
-    Name = "CheckWindow",
-    Size = UDim2.fromOffset(240, 150),
-    Position = UDim2.new(0.5,-120,0.5,-75),
-    BackgroundColor3 = Color3.fromRGB(30,30,30),
-    BackgroundTransparency = 0.1,
-    Visible = false,
-}, gui)
-corner(checkWindow, 10); stroke(checkWindow, Color3.fromRGB(120,120,120), 0.3)
-
-new("TextLabel", {
-    Size = UDim2.new(1,0,0,28), BackgroundTransparency = 1,
-    Text = "Введите число выше", TextColor3 = Color3.fromRGB(220,220,220),
-    Font = Enum.Font.GothamBold, TextSize = 14,
-}, checkWindow)
-
-local checkInput = new("TextBox", {
-    Size = UDim2.new(1,-24,0,30), Position = UDim2.new(0,12,0,40),
-    BackgroundColor3 = Color3.fromRGB(45,45,45),
-    Text = "", PlaceholderText = "например 542",
-    PlaceholderColor3 = Color3.fromRGB(140,140,140),
-    TextColor3 = Color3.fromRGB(220,220,220),
-    Font = Enum.Font.Gotham, TextSize = 14, ClearTextOnFocus = false,
-}, checkWindow)
-corner(checkInput, 6); stroke(checkInput, Color3.fromRGB(100,100,100), 0.5)
-
-local checkBtn = new("TextButton", {
-    Size = UDim2.new(1,-24,0,30), Position = UDim2.new(0,12,0,80),
-    BackgroundColor3 = Color3.fromRGB(60,90,60),
-    Text = "Проверить", TextColor3 = Color3.new(1,1,1),
-    Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false,
-}, checkWindow)
-corner(checkBtn, 6)
-
-local checkError = new("TextLabel", {
-    Size = UDim2.new(1,-24,0,18), Position = UDim2.new(0,12,0,116),
-    BackgroundTransparency = 1, Text = "",
-    TextColor3 = Color3.fromRGB(255,120,120), Font = Enum.Font.Gotham, TextSize = 12,
-}, checkWindow)
-
-local function checkCaptcha()
-    local answer = tonumber(checkInput.Text)
-    if answer == captchaValue then
-        captchaSolved = true
-        checkWindow.Visible = false
-        frame.Visible = true
-        frame.Size = UDim2.fromOffset(620,0)
-        TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(620,420)}):Play()
-    else
-        checkError.Text = "Неверно, попробуй ещё"
-        checkInput.Text = ""
-    end
-end
-checkBtn.MouseButton1Click:Connect(checkCaptcha)
-checkInput.FocusLost:Connect(function(enter) if enter then checkCaptcha() end end)
-
-local function tryOpenMenu()
-    if captchaSolved then
-        if frame.Visible then
-            TweenService:Create(frame, TweenInfo.new(0.15), {Size = UDim2.fromOffset(620,0)}):Play()
-            task.wait(0.15)
-            frame.Visible = false
-            frame.Size = UDim2.fromOffset(620,420)
-        else
-            frame.Visible = true
-            frame.Size = UDim2.fromOffset(620,0)
-            TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(620,420)}):Play()
-        end
-    else
-        checkWindow.Visible = true
-        checkError.Text = ""
-    end
-end
-
---=============================================================
 --  UI ХЕЛПЕРЫ
 --=============================================================
 local function makeTabButton(text, order)
     local b = new("TextButton", {
-        Size = UDim2.new(1,-12,0,28), BackgroundColor3 = Color3.fromRGB(45,45,45),
+        Size = UDim2.new(1,-12,0,26), BackgroundColor3 = Color3.fromRGB(45,45,45),
         BackgroundTransparency = 0.2, Text = text, TextColor3 = Color3.fromRGB(210,210,210),
-        Font = Enum.Font.GothamMedium, TextSize = 13, AutoButtonColor = false, LayoutOrder = order or 0,
+        Font = Enum.Font.GothamMedium, TextSize = 12, AutoButtonColor = false, LayoutOrder = order or 0,
     }, tabBar)
     corner(b, 6); return b
 end
 local function makeToggle(parent, text, order, callback)
-    local row = new("Frame", {Size = UDim2.new(1,-16,0,28), BackgroundTransparency = 1, LayoutOrder = order or 0}, parent)
+    local row = new("Frame", {Size = UDim2.new(1,-16,0,26), BackgroundTransparency = 1, LayoutOrder = order or 0}, parent)
     new("TextLabel", {Size = UDim2.new(1,-50,1,0), BackgroundTransparency = 1, Text = text,
         TextColor3 = Color3.fromRGB(210,210,210), Font = Enum.Font.Gotham, TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left}, row)
@@ -285,7 +187,7 @@ local function makeToggle(parent, text, order, callback)
     return row, function() return state end
 end
 local function makeInput(parent, text, order, placeholder, callback)
-    local row = new("Frame", {Size = UDim2.new(1,-16,0,28), BackgroundTransparency = 1, LayoutOrder = order or 0}, parent)
+    local row = new("Frame", {Size = UDim2.new(1,-16,0,26), BackgroundTransparency = 1, LayoutOrder = order or 0}, parent)
     new("TextLabel", {Size = UDim2.new(0.5,0,1,0), BackgroundTransparency = 1, Text = text,
         TextColor3 = Color3.fromRGB(210,210,210), Font = Enum.Font.Gotham, TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left}, row)
@@ -298,13 +200,13 @@ local function makeInput(parent, text, order, placeholder, callback)
     return row
 end
 local function makeSection(parent, text, order)
-    return new("TextLabel", {Size = UDim2.new(1,-16,0,22), BackgroundTransparency = 1, Text = text,
+    return new("TextLabel", {Size = UDim2.new(1,-16,0,20), BackgroundTransparency = 1, Text = text,
         TextColor3 = Color3.fromRGB(160,160,160), Font = Enum.Font.GothamBold, TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order or 0}, parent)
 end
 local function makeButton(parent, text, order, callback)
     local b = new("TextButton", {
-        Size = UDim2.new(1,-16,0,28), BackgroundColor3 = Color3.fromRGB(45,45,45),
+        Size = UDim2.new(1,-16,0,26), BackgroundColor3 = Color3.fromRGB(45,45,45),
         Text = text, TextColor3 = Color3.fromRGB(220,220,220),
         Font = Enum.Font.GothamMedium, TextSize = 13, AutoButtonColor = false, LayoutOrder = order or 0,
     }, parent)
@@ -357,7 +259,7 @@ local function addTab(name, title, order)
         ScrollBarThickness = 4, CanvasSize = UDim2.new(0,0,0,0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y, Visible = false,
     }, content)
-    new("UIListLayout", {Padding = UDim.new(0,6), SortOrder = Enum.SortOrder.LayoutOrder}, page)
+    new("UIListLayout", {Padding = UDim.new(0,5), SortOrder = Enum.SortOrder.LayoutOrder}, page)
     new("UIPadding", {PaddingTop = UDim.new(0,8), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8)}, page)
     local btn = makeTabButton(title, order)
     btn.MouseButton1Click:Connect(function() switchTab(name) end)
@@ -374,7 +276,7 @@ do
         local c = plr.Character or plr.CharacterAdded:Wait()
         return c:FindFirstChildOfClass("Humanoid")
     end
-    makeSection(userPage, "Внешность (локально)", 1)
+    makeSection(userPage, "Внешность", 1)
     makeToggle(userPage, "Фейк Headless", 2, function(on)
         local c = plr.Character; if not c then return end
         local head = c:FindFirstChild("Head"); if not head then return end
@@ -408,6 +310,12 @@ do
         end
         hum.AnimationPlayed = on and function(track) track:Stop() end or nil
     end)
+    makeToggle(userPage, "Невидимость (локально)", 5, function(on)
+        local c = plr.Character; if not c then return end
+        for _, part in ipairs(c:GetDescendants()) do
+            if part:IsA("BasePart") then part.LocalTransparencyModifier = on and 1 or 0 end
+        end
+    end)
     makeSection(userPage, "Движение", 10)
     makeInput(userPage, "Скорость", 11, "16", function(v)
         local h = getHum(); if h and tonumber(v) then h.WalkSpeed = tonumber(v) end
@@ -415,10 +323,13 @@ do
     makeInput(userPage, "Прыжок", 12, "50", function(v)
         local h = getHum(); if h and tonumber(v) then h.JumpPower = tonumber(v) end
     end)
+    makeToggle(userPage, "Бесконечный прыжок", 13, function(on)
+        infiniteJump = on
+    end)
     local spinning = false
     local spinSpeed = 180
-    makeToggle(userPage, "Спин по Y", 13, function(on) spinning = on end)
-    makeInput(userPage, "Скорость спина (°/сек)", 14, "180", function(v)
+    makeToggle(userPage, "Спин по Y", 14, function(on) spinning = on end)
+    makeInput(userPage, "Скорость спина (°/сек)", 15, "180", function(v)
         if tonumber(v) then spinSpeed = tonumber(v) end
     end)
     RunService.RenderStepped:Connect(function(dt)
@@ -427,7 +338,7 @@ do
         c:PivotTo(c:GetPivot() * CFrame.Angles(0, math.rad(spinSpeed)*dt, 0))
     end)
     local backWalk = false
-    makeToggle(userPage, "Идти спиной (Shift Lock)", 15, function(on)
+    makeToggle(userPage, "Идти спиной (Shift Lock)", 16, function(on)
         backWalk = on
         local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
         if hum then hum.AutoRotate = not on end
@@ -448,7 +359,50 @@ do
         local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
         if h and not backWalk then h.AutoRotate = true end
     end)
+
+    makeSection(userPage, "Фан", 20)
+    makeButton(userPage, "Салют (частицы)", 21, function()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        for i = 1, 5 do
+            local p = Instance.new("Part")
+            p.Size = Vector3.new(0.5,0.5,0.5)
+            p.Color = Color3.fromHSV(math.random(),1,1)
+            p.Anchored = true; p.CanCollide = false
+            p.Position = c.PrimaryPart.Position + Vector3.new(math.random(-5,5), math.random(2,5), math.random(-5,5))
+            p.Parent = workspace
+            task.spawn(function()
+                for j = 1, 20 do
+                    p.Position = p.Position + Vector3.new(0,0.2,0)
+                    p.Transparency = j/20
+                    task.wait(0.03)
+                end
+                p:Destroy()
+            end)
+        end
+    end)
+    makeButton(userPage, "Призрак (партиклы)", 22, function()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        local hrp = c.PrimaryPart
+        local pe = Instance.new("ParticleEmitter")
+        pe.Texture = "rbxassetid://241876428"
+        pe.Rate = 50; pe.Lifetime = NumberRange.new(0.5,1)
+        pe.Speed = NumberRange.new(1,3)
+        pe.Size = NumberSequence.new(1)
+        pe.Transparency = NumberSequence.new(0.5)
+        pe.Color = ColorSequence.new(Color3.fromRGB(150,150,255))
+        pe.Parent = hrp
+        task.delay(5, function() if pe then pe:Destroy() end end)
+    end)
 end
+
+-- infinite jump
+local infiniteJump = false
+UIS.JumpRequest:Connect(function()
+    if infiniteJump then
+        local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
 
 --=============================================================
 --  VISUAL
@@ -502,6 +456,45 @@ do
         if not on then resetLighting(); return end
         Lighting.FogEnd = 50; Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(220,220,230); Lighting.Brightness = 1.5
+    end)
+
+    makeSection(visualPage, "Освещение", 10)
+    makeInput(visualPage, "Brightness", 11, "2", function(v)
+        if tonumber(v) then Lighting.Brightness = tonumber(v) end
+    end)
+    makeInput(visualPage, "ClockTime", 12, "14", function(v)
+        if tonumber(v) then Lighting.ClockTime = tonumber(v) end
+    end)
+    makeInput(visualPage, "Fog End", 13, "100000", function(v)
+        if tonumber(v) then Lighting.FogEnd = tonumber(v) end
+    end)
+    makeToggle(visualPage, "Ночное зрение (яркий ambient)", 14, function(on)
+        if on then
+            Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
+            Lighting.Ambient = Color3.fromRGB(200,200,200)
+        else
+            Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
+            Lighting.Ambient = Color3.fromRGB(0,0,0)
+        end
+    end)
+    makeToggle(visualPage, "Убрать туман", 15, function(on)
+        if on then Lighting.FogEnd = 1e6
+        else Lighting.FogEnd = 100000 end
+    end)
+
+    makeSection(visualPage, "Свой эффект", 20)
+    makeButton(visualPage, "Создать молнию рядом", 21, function()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        local old = Lighting.Brightness
+        Lighting.Brightness = 8
+        task.wait(0.06)
+        Lighting.Brightness = old
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://9120386436"
+        sound.Volume = 2
+        sound.Parent = workspace
+        sound:Play()
+        task.delay(2, function() sound:Destroy() end)
     end)
 end
 
@@ -755,6 +748,20 @@ do
         flying = on
         if on then startFly() else stopFly() end
     end)
+
+    makeSection(flyPage, "Прыжок-полёт", 10)
+    local hopFly = false
+    makeToggle(flyPage, "Прыжок с полётом (Space x2)", 11, function(on) hopFly = on end)
+    UIS.JumpRequest:Connect(function()
+        if not hopFly then return end
+        local c = plr.Character; if not c then return end
+        local hrp = c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Velocity = Vector3.new(0, 80, 0)
+        bv.Parent = hrp
+        task.delay(0.5, function() if bv then bv:Destroy() end end)
+    end)
 end
 
 --=============================================================
@@ -824,10 +831,36 @@ do
             c:PivotTo(CFrame.new(m.Hit.Position + Vector3.new(0,3,0)))
         end
     end)
+
+    makeSection(tpPage, "Телепорт к объекту по имени", 30)
+    local objName = nil
+    makeInput(tpPage, "Имя объекта", 31, "Part", function(v) objName = v end)
+    makeButton(tpPage, "Найти и телепорт", 32, function()
+        if not objName then return end
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        for _, o in ipairs(workspace:GetDescendants()) do
+            if o.Name == objName and o:IsA("BasePart") then
+                c:PivotTo(CFrame.new(o.Position + Vector3.new(0,3,0)))
+                break
+            end
+        end
+    end)
+
+    makeSection(tpPage, "Сохранение позиции", 40)
+    local savedPos = nil
+    makeButton(tpPage, "Сохранить позицию", 41, function()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        savedPos = c.PrimaryPart.Position
+    end)
+    makeButton(tpPage, "Вернуться к сохранённой", 42, function()
+        if not savedPos then return end
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        c:PivotTo(CFrame.new(savedPos + Vector3.new(0,3,0)))
+    end)
 end
 
 --=============================================================
---  AIM — список игроков на сервере
+--  AIM
 --=============================================================
 local aimPage = addTab("aim", "aim", 6)
 do
@@ -882,19 +915,102 @@ do
         if not head then return end
         camera.CFrame = CFrame.lookAt(camera.CFrame.Position, head.Position)
     end)
+end
 
-    new("TextLabel", {
-        Size = UDim2.new(1,-16,0,40), BackgroundTransparency = 1,
-        Text = "Камера наводится на голову цели.\nСтрельба идёт по реальному прицелу (не silent aim).",
-        TextColor3 = Color3.fromRGB(180,180,180), Font = Enum.Font.Gotham,
-        TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 10,
-    }, aimPage)
+--=============================================================
+--  MISC — куча мелких функций
+--=============================================================
+local miscPage = addTab("misc", "misc", 7)
+do
+    makeSection(miscPage, "Чат", 1)
+    local chatMsg = "Привет!"
+    makeInput(miscPage, "Текст", 2, "Привет!", function(v) chatMsg = v end)
+    makeButton(miscPage, "Отправить в чат", 3, function()
+        local ev = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+        if ev then
+            local say = ev:FindFirstChild("SayMessageRequest")
+            if say then
+                say:FireServer(chatMsg, "All")
+            end
+        end
+    end)
+
+    makeSection(miscPage, "Rejoin", 10)
+    makeButton(miscPage, "Переподключиться", 11, function()
+        game:GetService("TeleportService"):Teleport(game.PlaceId, plr)
+    end)
+    makeButton(miscPage, "В лобби (PlaceId)", 12, function()
+        game:GetService("TeleportService"):Teleport(0, plr) -- замени 0 на нужный ID
+    end)
+
+    makeSection(miscPage, "Информация о сервере", 20)
+    local infoLabel = new("TextLabel", {
+        Size = UDim2.new(1,-16,0,80), BackgroundTransparency = 1,
+        Text = "", TextColor3 = Color3.fromRGB(200,200,200),
+        Font = Enum.Font.Gotham, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true, LayoutOrder = 21,
+    }, miscPage)
+    makeButton(miscPage, "Обновить инфо", 22, function()
+        local players = #Players:GetPlayers()
+        local ping = math.floor(plr:GetNetworkPing() * 1000)
+        infoLabel.Text = string.format(
+            "Игроков: %d\nPing: %d ms\nPlaceId: %d\nJobId: %s",
+            players, ping, game.PlaceId, tostring(game.JobId):sub(1, 20).."…"
+        )
+    end)
+
+    makeSection(miscPage, "Скорость игры", 30)
+    makeButton(miscPage, "Ускорить время (x2)", 31, function()
+        game:GetService("RunService").Heartbeat:Connect(function()
+            -- нельзя напрямую, оставим как визуал
+        end)
+        Lighting.ClockTime = (Lighting.ClockTime + 1) % 24
+    end)
+    makeButton(miscPage, "Сброс персонажа", 32, function()
+        local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+        if h then h.Health = 0 end
+    end)
+
+    makeSection(miscPage, "Звуки", 40)
+    makeButton(miscPage, "Сыграть звук", 41, function()
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://9120386436"
+        s.Volume = 2
+        s.Parent = workspace
+        s:Play()
+        task.delay(3, function() s:Destroy() end)
+    end)
+
+    makeSection(miscPage, "Хитбокс", 50)
+    makeToggle(miscPage, "Увеличить хитбокс", 51, function(on)
+        local c = plr.Character; if not c then return end
+        local hrp = c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+        if on then
+            hrp.Size = Vector3.new(10,10,10)
+            hrp.Transparency = 0.7
+        else
+            hrp.Size = Vector3.new(2,2,1)
+            hrp.Transparency = 1
+        end
+    end)
 end
 
 --=============================================================
 --  СТАРТ
 --=============================================================
 switchTab("user")
-toggle.MouseButton1Click:Connect(tryOpenMenu)
 
-print("[MyUI v7] loaded | icon:", ICON_ID)
+toggle.MouseButton1Click:Connect(function()
+    if frame.Visible then
+        TweenService:Create(frame, TweenInfo.new(0.15), {Size = UDim2.fromOffset(660,0)}):Play()
+        task.wait(0.15)
+        frame.Visible = false
+        frame.Size = UDim2.fromOffset(660,460)
+    else
+        frame.Visible = true
+        frame.Size = UDim2.fromOffset(660,0)
+        TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.fromOffset(660,460)}):Play()
+    end
+end)
+
+print("[MyUI v8] loaded | icon:", ICON_ID)
