@@ -1,7 +1,7 @@
 --=============================================================
---  MyUI v8
+--  MyUI v9
 --  Вкладки: user / visual / esp / fly / tp / aim / misc
---  Много функций, без key-системы
+--  Visual: погода, вода+отражения, фильтры, ауры, FOV
 --=============================================================
 
 local Players      = game:GetService("Players")
@@ -55,7 +55,7 @@ local function stroke(p, color, tr)
 end
 
 --=============================================================
---  КОРНЕВОЙ GUI + КНОПКА
+--  КОРНЕВОЙ GUI
 --=============================================================
 local gui = new("ScreenGui", {
     Name = "MyUI", ResetOnSpawn = false, IgnoreGuiInset = true,
@@ -99,7 +99,6 @@ UIS.InputEnded:Connect(function(input)
     end
 end)
 
--- основное окно
 local frame = new("Frame", {
     Name = "Main", Size = UDim2.fromOffset(660,460),
     Position = UDim2.new(0.5,-330,0.5,-230),
@@ -117,7 +116,7 @@ corner(topBar, 10)
 new("Frame", {Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,1,-10),
     BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.3, BorderSizePixel = 0}, topBar)
 new("TextLabel", {Size = UDim2.new(1,-70,1,0), Position = UDim2.new(0,12,0,0),
-    BackgroundTransparency = 1, Text = "MyUI v8", TextColor3 = Color3.fromRGB(220,220,220),
+    BackgroundTransparency = 1, Text = "MyUI v9", TextColor3 = Color3.fromRGB(220,220,220),
     Font = Enum.Font.GothamMedium, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, topBar)
 local closeBtn = new("TextButton", {
     Size = UDim2.fromOffset(24,24), Position = UDim2.new(1,-30,0.5,-12),
@@ -323,9 +322,7 @@ do
     makeInput(userPage, "Прыжок", 12, "50", function(v)
         local h = getHum(); if h and tonumber(v) then h.JumpPower = tonumber(v) end
     end)
-    makeToggle(userPage, "Бесконечный прыжок", 13, function(on)
-        infiniteJump = on
-    end)
+    makeToggle(userPage, "Бесконечный прыжок", 13, function(on) infiniteJump = on end)
     local spinning = false
     local spinSpeed = 180
     makeToggle(userPage, "Спин по Y", 14, function(on) spinning = on end)
@@ -382,7 +379,6 @@ do
     end)
     makeButton(userPage, "Призрак (партиклы)", 22, function()
         local c = plr.Character; if not c or not c.PrimaryPart then return end
-        local hrp = c.PrimaryPart
         local pe = Instance.new("ParticleEmitter")
         pe.Texture = "rbxassetid://241876428"
         pe.Rate = 50; pe.Lifetime = NumberRange.new(0.5,1)
@@ -390,12 +386,11 @@ do
         pe.Size = NumberSequence.new(1)
         pe.Transparency = NumberSequence.new(0.5)
         pe.Color = ColorSequence.new(Color3.fromRGB(150,150,255))
-        pe.Parent = hrp
+        pe.Parent = c.PrimaryPart
         task.delay(5, function() if pe then pe:Destroy() end end)
     end)
 end
 
--- infinite jump
 local infiniteJump = false
 UIS.JumpRequest:Connect(function()
     if infiniteJump then
@@ -405,17 +400,24 @@ UIS.JumpRequest:Connect(function()
 end)
 
 --=============================================================
---  VISUAL
+--  VISUAL — погода, вода, отражения, фильтры, ауры, FOV
 --=============================================================
 local visualPage = addTab("visual", "visual", 2)
 do
     local function resetLighting()
         Lighting.Brightness = 2; Lighting.FogEnd = 100000; Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(192,192,192); Lighting.ClockTime = 14
+        Lighting.Ambient = Color3.fromRGB(0,0,0)
+        Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
     end
     local function clearWeather()
-        local o = workspace:FindFirstChild("WeatherRain"); if o then o:Destroy() end
+        for _, n in ipairs({"WeatherRain","WeatherSnow","WeatherFog","WeatherStars"}) do
+            local o = workspace:FindFirstChild(n); if o then o:Destroy() end
+        end
     end
+
+    -- ПОГОДА
+    makeSection(visualPage, "Погода", 1)
     local function setRain(on)
         clearWeather()
         if not on then resetLighting(); return end
@@ -433,10 +435,33 @@ do
             if c and c.PrimaryPart then rain.CFrame = CFrame.new(c.PrimaryPart.Position + Vector3.new(0,60,0)) end
         end)
     end
-    makeSection(visualPage, "Погода", 1)
     makeToggle(visualPage, "Дождь", 2, setRain)
+
+    local function setSnow(on)
+        clearWeather()
+        if not on then resetLighting(); return end
+        Lighting.FogEnd = 300; Lighting.FogColor = Color3.fromRGB(240,240,255); Lighting.Brightness = 2
+        local snow = Instance.new("Part")
+        snow.Name = "WeatherSnow"; snow.Size = Vector3.new(2000,1,2000); snow.Transparency = 1
+        snow.CanCollide = false; snow.Anchored = true; snow.Parent = workspace
+        local em = Instance.new("ParticleEmitter")
+        em.Texture = "rbxassetid://241876428"; em.Rate = 500
+        em.Lifetime = NumberRange.new(2,4)
+        em.Speed = NumberRange.new(5,15)
+        em.SpreadAngle = Vector2.new(20,20)
+        em.Size = NumberSequence.new(0.4)
+        em.Color = ColorSequence.new(Color3.fromRGB(255,255,255))
+        em.Parent = snow
+        local conn; conn = RunService.Heartbeat:Connect(function()
+            if not snow.Parent then conn:Disconnect(); return end
+            local c = plr.Character
+            if c and c.PrimaryPart then snow.CFrame = CFrame.new(c.PrimaryPart.Position + Vector3.new(0,50,0)) end
+        end)
+    end
+    makeToggle(visualPage, "Снег", 3, setSnow)
+
     local lightningOn = false
-    makeToggle(visualPage, "Гроза (молнии)", 3, function(on) lightningOn = on end)
+    makeToggle(visualPage, "Гроза (молнии)", 4, function(on) lightningOn = on end)
     task.spawn(function()
         while true do
             task.wait(math.random(4,10))
@@ -448,16 +473,190 @@ do
             end
         end
     end)
-    makeToggle(visualPage, "Солнечно", 4, function(on)
+    makeToggle(visualPage, "Солнечно", 5, function(on)
         if on then resetLighting(); Lighting.Brightness = 4; Lighting.ClockTime = 12 end
     end)
-    makeToggle(visualPage, "Метель (туман 50 studs)", 5, function(on)
+    makeToggle(visualPage, "Метель (туман 50 studs)", 6, function(on)
         clearWeather()
         if not on then resetLighting(); return end
         Lighting.FogEnd = 50; Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(220,220,230); Lighting.Brightness = 1.5
     end)
+    makeToggle(visualPage, "Ночь", 7, function(on)
+        if on then
+            Lighting.ClockTime = 0; Lighting.Brightness = 0.5
+            Lighting.FogEnd = 500; Lighting.FogColor = Color3.fromRGB(20,20,40)
+        else resetLighting() end
+    end)
 
+    -- ВОДА И ОТРАЖЕНИЯ
+    makeSection(visualPage, "Вода / Отражения", 100)
+    local waterParts = {}
+    local mirrorClone = nil
+    local rippleConn = nil
+
+    local function makeReflectiveWater()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        for _, p in ipairs(waterParts) do if p then p:Destroy() end end
+        waterParts = {}
+        local basePos = c.PrimaryPart.Position
+        local water = Instance.new("Part")
+        water.Name = "MyUI_Water"
+        water.Size = Vector3.new(200, 0.2, 200)
+        water.CFrame = CFrame.new(basePos.X, basePos.Y - 3, basePos.Z)
+        water.Anchored = true; water.CanCollide = false
+        water.Transparency = 0.4
+        water.Reflectance = 0.8
+        water.Material = Enum.Material.Glass
+        water.Color = Color3.fromRGB(40,80,140)
+        water.Parent = workspace
+        table.insert(waterParts, water)
+        local deep = Instance.new("Part")
+        deep.Size = Vector3.new(200, 0.1, 200)
+        deep.CFrame = CFrame.new(basePos.X, basePos.Y - 6, basePos.Z)
+        deep.Anchored = true; deep.CanCollide = false
+        deep.Transparency = 0.6; deep.Reflectance = 0.5
+        deep.Color = Color3.fromRGB(20,40,90)
+        deep.Material = Enum.Material.Glass
+        deep.Parent = workspace
+        table.insert(waterParts, deep)
+    end
+
+    local function makeMirrorClone()
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        if mirrorClone then mirrorClone:Destroy(); mirrorClone = nil end
+        local clone = c:Clone()
+        clone.Name = "MyUI_Mirror"
+        for _, d in ipairs(clone:GetDescendants()) do
+            if d:IsA("BasePart") then
+                d.Anchored = true; d.CanCollide = false
+                d.Transparency = 0.5; d.Material = Enum.Material.Glass
+            elseif d:IsA("Script") or d:IsA("LocalScript") then
+                d:Destroy()
+            end
+        end
+        clone.Parent = workspace
+        mirrorClone = clone
+    end
+
+    local function updateMirror()
+        if not mirrorClone then return end
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        local baseY = c.PrimaryPart.Position.Y
+        local waterY = baseY - 3
+        for _, part in ipairs(mirrorClone:GetDescendants()) do
+            if part:IsA("BasePart") then
+                local origPart = c:FindFirstChild(part.Name)
+                if origPart then
+                    part.CFrame = CFrame.new(origPart.Position.X, waterY - (origPart.Position.Y - waterY), origPart.Position.Z) * origPart.CFrame.Rotation
+                end
+            end
+        end
+    end
+
+    local function makeRipples()
+        if rippleConn then rippleConn:Disconnect(); rippleConn = nil end
+        local lastPos = nil
+        rippleConn = RunService.Heartbeat:Connect(function()
+            local c = plr.Character; if not c or not c.PrimaryPart then return end
+            local pos = c.PrimaryPart.Position
+            if lastPos and (pos - lastPos).Magnitude > 2 then
+                lastPos = pos
+                local ripple = Instance.new("Part")
+                ripple.Size = Vector3.new(1,0.05,1)
+                ripple.Shape = Enum.PartType.Cylinder
+                ripple.CFrame = CFrame.new(pos.X, pos.Y - 2.9, pos.Z) * CFrame.Angles(0,0,math.rad(90))
+                ripple.Color = Color3.fromRGB(100,150,200)
+                ripple.Material = Enum.Material.Neon
+                ripple.Anchored = true; ripple.CanCollide = false
+                ripple.Transparency = 0.3
+                ripple.Parent = workspace
+                task.spawn(function()
+                    for i = 1, 15 do
+                        ripple.Size = Vector3.new(1 + i*2, 0.05, 1 + i*2)
+                        ripple.Transparency = 0.3 + i*0.04
+                        task.wait(0.05)
+                    end
+                    ripple:Destroy()
+                end)
+            elseif not lastPos then
+                lastPos = pos
+            end
+        end)
+    end
+
+    makeToggle(visualPage, "Зеркальная вода", 101, function(on)
+        if on then makeReflectiveWater()
+        else
+            for _, p in ipairs(waterParts) do if p then p:Destroy() end end
+            waterParts = {}
+        end
+    end)
+    makeToggle(visualPage, "Отражение персонажа", 102, function(on)
+        if on then
+            makeMirrorClone()
+            RunService.Heartbeat:Connect(updateMirror)
+        else
+            if mirrorClone then mirrorClone:Destroy(); mirrorClone = nil end
+        end
+    end)
+    makeToggle(visualPage, "Круги от шагов", 103, function(on)
+        if on then makeRipples()
+        else if rippleConn then rippleConn:Disconnect(); rippleConn = nil end end
+    end)
+    makeInput(visualPage, "Прозрачность воды", 104, "0.4", function(v)
+        if tonumber(v) then
+            for _, p in ipairs(waterParts) do
+                if p and p.Name == "MyUI_Water" then p.Transparency = tonumber(v) end
+            end
+        end
+    end)
+    makeInput(visualPage, "Отражательность (0-1)", 105, "0.8", function(v)
+        if tonumber(v) then
+            for _, p in ipairs(waterParts) do if p then p.Reflectance = tonumber(v) end end
+        end
+    end)
+
+    -- ОТРАЖЕНИЯ ОТ ПРЕДМЕТОВ
+    makeSection(visualPage, "Отражения от предметов", 110)
+    local reflRadius = 50
+    local function applyReflectance(radius, val)
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        local basePos = c.PrimaryPart.Position
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj ~= c.PrimaryPart then
+                if (obj.Position - basePos).Magnitude < radius then
+                    if not obj:GetAttribute("MyUI_OrigRefl") then
+                        obj:SetAttribute("MyUI_OrigRefl", obj.Reflectance)
+                        obj:SetAttribute("MyUI_OrigMat", tostring(obj.Material))
+                    end
+                    obj.Reflectance = val
+                    obj.Material = Enum.Material.Glass
+                end
+            end
+        end
+    end
+    local function clearReflectance()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj:GetAttribute("MyUI_OrigRefl") ~= nil then
+                obj.Reflectance = obj:GetAttribute("MyUI_OrigRefl")
+                local mat = obj:GetAttribute("MyUI_OrigMat")
+                if mat then
+                    local ok, m = pcall(function() return Enum.Material[mat] end)
+                    if ok and m then obj.Material = m end
+                end
+                obj:SetAttribute("MyUI_OrigRefl", nil)
+                obj:SetAttribute("MyUI_OrigMat", nil)
+            end
+        end
+    end
+    makeInput(visualPage, "Радиус (studs)", 111, "50", function(v)
+        if tonumber(v) then reflRadius = tonumber(v) end
+    end)
+    makeButton(visualPage, "Сделать предметы глянцевыми", 112, function() applyReflectance(reflRadius, 0.7) end)
+    makeButton(visualPage, "Убрать отражения с предметов", 113, clearReflectance)
+
+    -- ОСВЕЩЕНИЕ
     makeSection(visualPage, "Освещение", 10)
     makeInput(visualPage, "Brightness", 11, "2", function(v)
         if tonumber(v) then Lighting.Brightness = tonumber(v) end
@@ -468,7 +667,7 @@ do
     makeInput(visualPage, "Fog End", 13, "100000", function(v)
         if tonumber(v) then Lighting.FogEnd = tonumber(v) end
     end)
-    makeToggle(visualPage, "Ночное зрение (яркий ambient)", 14, function(on)
+    makeToggle(visualPage, "Ночное зрение", 15, function(on)
         if on then
             Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
             Lighting.Ambient = Color3.fromRGB(200,200,200)
@@ -477,24 +676,127 @@ do
             Lighting.Ambient = Color3.fromRGB(0,0,0)
         end
     end)
-    makeToggle(visualPage, "Убрать туман", 15, function(on)
-        if on then Lighting.FogEnd = 1e6
-        else Lighting.FogEnd = 100000 end
+
+    -- ЦВЕТОВЫЕ ФИЛЬТРЫ
+    makeSection(visualPage, "Цветовые фильтры", 20)
+    local filters = {
+        {name = "Красный", color = Color3.fromRGB(255,100,100), contrast = 0.2, saturation = 0.5},
+        {name = "Синий",   color = Color3.fromRGB(100,150,255), contrast = 0.2, saturation = 0.5},
+        {name = "Зелёный", color = Color3.fromRGB(100,255,150), contrast = 0.2, saturation = 0.5},
+        {name = "ЧБ",      color = Color3.fromRGB(200,200,200), contrast = 0.3, saturation = -1},
+        {name = "Сепия",   color = Color3.fromRGB(220,180,120), contrast = 0.2, saturation = 0.3},
+        {name = "Неон",    color = Color3.fromRGB(150,100,255), contrast = 0.5, saturation = 0.8},
+    }
+    local currentFilter
+    local filterRow = new("Frame", {Size = UDim2.new(1,-16,0,26), BackgroundTransparency = 1, LayoutOrder = 21}, visualPage)
+    new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,4),
+        SortOrder = Enum.SortOrder.LayoutOrder}, filterRow)
+    for i, f in ipairs(filters) do
+        local b = new("TextButton", {
+            Size = UDim2.fromOffset(50,24), BackgroundColor3 = f.color,
+            Text = f.name, TextColor3 = Color3.new(1,1,1),
+            Font = Enum.Font.GothamBold, TextSize = 10, LayoutOrder = i,
+        }, filterRow)
+        corner(b, 4)
+        b.MouseButton1Click:Connect(function()
+            if currentFilter then currentFilter:Destroy() end
+            local c = Instance.new("ColorCorrectionEffect")
+            c.TintColor = f.color; c.Contrast = f.contrast; c.Saturation = f.saturation
+            c.Parent = Lighting; currentFilter = c
+        end)
+    end
+    makeButton(visualPage, "Убрать фильтр", 22, function()
+        if currentFilter then currentFilter:Destroy(); currentFilter = nil end
     end)
 
-    makeSection(visualPage, "Свой эффект", 20)
-    makeButton(visualPage, "Создать молнию рядом", 21, function()
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
+    -- ЭФФЕКТЫ ЭКРАНА
+    makeSection(visualPage, "Эффекты экрана", 30)
+    makeToggle(visualPage, "Bloom", 31, function(on)
+        local e = Lighting:FindFirstChildOfClass("BloomEffect")
+        if on and not e then
+            local b = Instance.new("BloomEffect")
+            b.Intensity = 0.8; b.Size = 24; b.Threshold = 0.8; b.Parent = Lighting
+        elseif not on and e then e:Destroy() end
+    end)
+    makeToggle(visualPage, "Blur", 32, function(on)
+        local e = Lighting:FindFirstChildOfClass("BlurEffect")
+        if on and not e then
+            local b = Instance.new("BlurEffect"); b.Size = 12; b.Parent = Lighting
+        elseif not on and e then e:Destroy() end
+    end)
+    makeToggle(visualPage, "Depth of Field", 33, function(on)
+        local d = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
+        if on and not d then
+            local dof = Instance.new("DepthOfFieldEffect")
+            dof.FarIntensity = 0.5; dof.FocusDistance = 20; dof.NearIntensity = 0.3
+            dof.Parent = Lighting
+        elseif not on and d then d:Destroy() end
+    end)
+    makeToggle(visualPage, "Sun Rays", 34, function(on)
+        local s = Lighting:FindFirstChildOfClass("SunRaysEffect")
+        if on and not s then
+            local sr = Instance.new("SunRaysEffect")
+            sr.Intensity = 0.2; sr.Spread = 0.5; sr.Parent = Lighting
+        elseif not on and s then s:Destroy() end
+    end)
+
+    -- СПЕЦЭФФЕКТЫ
+    makeSection(visualPage, "Спецэффекты", 50)
+    makeButton(visualPage, "Ударить молнией", 51, function()
         local old = Lighting.Brightness
         Lighting.Brightness = 8
         task.wait(0.06)
         Lighting.Brightness = old
-        local sound = Instance.new("Sound")
-        sound.SoundId = "rbxassetid://9120386436"
-        sound.Volume = 2
-        sound.Parent = workspace
-        sound:Play()
-        task.delay(2, function() sound:Destroy() end)
+        local s = Instance.new("Sound")
+        s.SoundId = "rbxassetid://9120386436"; s.Volume = 2
+        s.Parent = workspace; s:Play()
+        task.delay(2, function() s:Destroy() end)
+    end)
+    makeButton(visualPage, "Тряска экрана", 52, function()
+        local cam = workspace.CurrentCamera
+        local orig = cam.CFrame
+        task.spawn(function()
+            for i = 1, 10 do
+                cam.CFrame = orig * CFrame.new(math.random(-5,5)/10, math.random(-5,5)/10, 0)
+                task.wait(0.05)
+            end
+            cam.CFrame = orig
+        end)
+    end)
+
+    -- АУРЫ
+    makeSection(visualPage, "Частицы вокруг персонажа", 70)
+    local activeEmitters = {}
+    local function makeAura(name, color, size)
+        local c = plr.Character; if not c or not c.PrimaryPart then return end
+        if activeEmitters[name] then activeEmitters[name]:Destroy(); activeEmitters[name] = nil; return end
+        local pe = Instance.new("ParticleEmitter")
+        pe.Name = name; pe.Texture = "rbxassetid://241876428"
+        pe.Rate = 80; pe.Lifetime = NumberRange.new(0.5,1.5)
+        pe.Speed = NumberRange.new(0,2)
+        pe.SpreadAngle = Vector2.new(180,180)
+        pe.Size = NumberSequence.new(size or 0.5)
+        pe.Color = ColorSequence.new(color)
+        pe.Transparency = NumberSequence.new(0.3)
+        pe.Parent = c.PrimaryPart
+        activeEmitters[name] = pe
+    end
+    makeButton(visualPage, "Огонь", 71, function() makeAura("FireAura", Color3.fromRGB(255,100,0), 0.8) end)
+    makeButton(visualPage, "Лёд", 72, function() makeAura("IceAura", Color3.fromRGB(100,200,255), 0.6) end)
+    makeButton(visualPage, "Молния", 73, function() makeAura("LightAura", Color3.fromRGB(255,255,150), 0.5) end)
+    makeButton(visualPage, "Смерть", 74, function() makeAura("DeathAura", Color3.fromRGB(50,0,50), 0.7) end)
+    makeButton(visualPage, "Убрать все", 75, function()
+        for _, pe in pairs(activeEmitters) do if pe then pe:Destroy() end end
+        activeEmitters = {}
+    end)
+
+    -- FOV
+    makeSection(visualPage, "FOV камеры", 80)
+    makeInput(visualPage, "Значение", 81, "70", function(v)
+        if tonumber(v) then camera.FieldOfView = tonumber(v) end
+    end)
+    makeButton(visualPage, "Сброс FOV (70)", 82, function()
+        camera.FieldOfView = 70
     end)
 end
 
@@ -748,10 +1050,9 @@ do
         flying = on
         if on then startFly() else stopFly() end
     end)
-
     makeSection(flyPage, "Прыжок-полёт", 10)
     local hopFly = false
-    makeToggle(flyPage, "Прыжок с полётом (Space x2)", 11, function(on) hopFly = on end)
+    makeToggle(flyPage, "Прыжок с полётом", 11, function(on) hopFly = on end)
     UIS.JumpRequest:Connect(function()
         if not hopFly then return end
         local c = plr.Character; if not c then return end
@@ -866,7 +1167,6 @@ local aimPage = addTab("aim", "aim", 6)
 do
     local aimEnabled = false
     local aimTarget = nil
-
     makeSection(aimPage, "Игроки на сервере", 1)
     local aimList = new("ScrollingFrame", {
         Size = UDim2.new(1,-16,0,160), BackgroundColor3 = Color3.fromRGB(25,25,25),
@@ -877,7 +1177,6 @@ do
     corner(aimList, 6)
     new("UIListLayout", {Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder}, aimList)
     new("UIPadding", {PaddingTop = UDim.new(0,4), PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4)}, aimList)
-
     local selectedLabel = new("TextLabel", {Size = UDim2.new(1,-16,0,20), BackgroundTransparency = 1,
         Text = "Выбрано: —", TextColor3 = Color3.fromRGB(200,200,200),
         Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 3}, aimPage)
@@ -904,9 +1203,7 @@ do
     Players.PlayerAdded:Connect(refreshAimList)
     Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshAimList() end)
     makeButton(aimPage, "Обновить список", 4, refreshAimList)
-
     makeToggle(aimPage, "Aim вкл/выкл", 5, function(on) aimEnabled = on end)
-
     RunService.RenderStepped:Connect(function()
         if not aimEnabled or not aimTarget then return end
         local char = aimTarget.Character
@@ -918,7 +1215,7 @@ do
 end
 
 --=============================================================
---  MISC — куча мелких функций
+--  MISC
 --=============================================================
 local miscPage = addTab("misc", "misc", 7)
 do
@@ -929,18 +1226,13 @@ do
         local ev = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
         if ev then
             local say = ev:FindFirstChild("SayMessageRequest")
-            if say then
-                say:FireServer(chatMsg, "All")
-            end
+            if say then say:FireServer(chatMsg, "All") end
         end
     end)
 
     makeSection(miscPage, "Rejoin", 10)
     makeButton(miscPage, "Переподключиться", 11, function()
         game:GetService("TeleportService"):Teleport(game.PlaceId, plr)
-    end)
-    makeButton(miscPage, "В лобби (PlaceId)", 12, function()
-        game:GetService("TeleportService"):Teleport(0, plr) -- замени 0 на нужный ID
     end)
 
     makeSection(miscPage, "Информация о сервере", 20)
@@ -959,30 +1251,18 @@ do
         )
     end)
 
-    makeSection(miscPage, "Скорость игры", 30)
-    makeButton(miscPage, "Ускорить время (x2)", 31, function()
-        game:GetService("RunService").Heartbeat:Connect(function()
-            -- нельзя напрямую, оставим как визуал
-        end)
-        Lighting.ClockTime = (Lighting.ClockTime + 1) % 24
-    end)
-    makeButton(miscPage, "Сброс персонажа", 32, function()
+    makeSection(miscPage, "Прочее", 30)
+    makeButton(miscPage, "Сброс персонажа", 31, function()
         local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
         if h then h.Health = 0 end
     end)
-
-    makeSection(miscPage, "Звуки", 40)
-    makeButton(miscPage, "Сыграть звук", 41, function()
+    makeButton(miscPage, "Сыграть звук", 32, function()
         local s = Instance.new("Sound")
-        s.SoundId = "rbxassetid://9120386436"
-        s.Volume = 2
-        s.Parent = workspace
-        s:Play()
+        s.SoundId = "rbxassetid://9120386436"; s.Volume = 2
+        s.Parent = workspace; s:Play()
         task.delay(3, function() s:Destroy() end)
     end)
-
-    makeSection(miscPage, "Хитбокс", 50)
-    makeToggle(miscPage, "Увеличить хитбокс", 51, function(on)
+    makeToggle(miscPage, "Увеличить хитбокс", 33, function(on)
         local c = plr.Character; if not c then return end
         local hrp = c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         if on then
@@ -1013,4 +1293,4 @@ toggle.MouseButton1Click:Connect(function()
     end
 end)
 
-print("[MyUI v8] loaded | icon:", ICON_ID)
+print("[MyUI v9] loaded | icon:", ICON_ID)
