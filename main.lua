@@ -1,7 +1,8 @@
 --=============================================================
---  MyUI v9
+--  MyUI v10
 --  Вкладки: user / visual / esp / fly / tp / aim / misc
---  Visual: погода, вода+отражения, фильтры, ауры, FOV
+--  Существа: Sahur, Ghost, Skeleton, Zombie, Golem
+--  Korblox починен через MeshPart.MeshId
 --=============================================================
 
 local Players      = game:GetService("Players")
@@ -116,7 +117,7 @@ corner(topBar, 10)
 new("Frame", {Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,1,-10),
     BackgroundColor3 = Color3.fromRGB(40,40,40), BackgroundTransparency = 0.3, BorderSizePixel = 0}, topBar)
 new("TextLabel", {Size = UDim2.new(1,-70,1,0), Position = UDim2.new(0,12,0,0),
-    BackgroundTransparency = 1, Text = "MyUI v9", TextColor3 = Color3.fromRGB(220,220,220),
+    BackgroundTransparency = 1, Text = "MyUI v10", TextColor3 = Color3.fromRGB(220,220,220),
     Font = Enum.Font.GothamMedium, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, topBar)
 local closeBtn = new("TextButton", {
     Size = UDim2.fromOffset(24,24), Position = UDim2.new(1,-30,0.5,-12),
@@ -267,6 +268,198 @@ local function addTab(name, title, order)
 end
 
 --=============================================================
+--  СИСТЕМА СУЩЕСТВ (с сохранением и восстановлением)
+--=============================================================
+local appearanceSystem = {
+    activeCreature = nil,
+    saved = {},  -- [part] = {Color, Material, Size, MeshId, Transparency}
+    extraParts = {}, -- созданные Part'ы (бита, корона и т.д.)
+}
+
+local function saveAppearance(part)
+    if appearanceSystem.saved[part] then return end
+    appearanceSystem.saved[part] = {
+        Color = part.Color,
+        Material = part.Material,
+        Size = part.Size,
+        MeshId = (part:IsA("MeshPart") and part.MeshId) or nil,
+        Transparency = part.Transparency,
+    }
+end
+
+local function restoreAppearance()
+    for part, data in pairs(appearanceSystem.saved) do
+        if part and part.Parent then
+            part.Color = data.Color
+            part.Material = data.Material
+            part.Size = data.Size
+            part.Transparency = data.Transparency
+            if part:IsA("MeshPart") and data.MeshId then
+                pcall(function() part.MeshId = data.MeshId end)
+            end
+        end
+    end
+    appearanceSystem.saved = {}
+    for _, p in ipairs(appearanceSystem.extraParts) do
+        if p and p.Parent then p:Destroy() end
+    end
+    appearanceSystem.extraParts = {}
+    local c = plr.Character
+    if c then
+        local head = c:FindFirstChild("Head")
+        if head then
+            for _, d in ipairs(head:GetChildren()) do
+                if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 0 end
+            end
+        end
+    end
+    appearanceSystem.activeCreature = nil
+end
+
+local function paintPart(part, color, material, size)
+    if not part or not part:IsA("BasePart") then return end
+    saveAppearance(part)
+    part.Color = color
+    part.Material = material
+    if size then
+        part.Size = size
+        if part:IsA("MeshPart") then
+            pcall(function() part.MeshId = "" end)
+        end
+    end
+end
+
+-- создания существ
+local creatures = {}
+
+creatures.sahur = function()
+    local c = plr.Character; if not c then return end
+    local wood = Color3.fromRGB(139,90,43)
+    local dark = Color3.fromRGB(90,60,30)
+    paintPart(c:FindFirstChild("UpperTorso"), wood, Enum.Material.Wood, Vector3.new(2,2,1))
+    paintPart(c:FindFirstChild("LowerTorso"), dark, Enum.Material.Wood, Vector3.new(2,0.6,1))
+    for _, n in ipairs({"LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand"}) do
+        paintPart(c:FindFirstChild(n), wood, Enum.Material.Wood, Vector3.new(1,1,1))
+    end
+    for _, n in ipairs({"LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do
+        paintPart(c:FindFirstChild(n), dark, Enum.Material.Wood, Vector3.new(1,2,1))
+    end
+    local head = c:FindFirstChild("Head")
+    if head then
+        paintPart(head, wood, Enum.Material.Wood, Vector3.new(1.2,1.2,1.2))
+        for _, d in ipairs(head:GetChildren()) do
+            if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 1 end
+        end
+    end
+    -- бита
+    local bat = Instance.new("Part")
+    bat.Name = "SahurBat"
+    bat.Size = Vector3.new(0.4,4,0.4)
+    bat.Color = Color3.fromRGB(100,60,30)
+    bat.Material = Enum.Material.Wood
+    bat.CanCollide = false; bat.Massless = true
+    local hand = c:FindFirstChild("RightHand") or c:FindFirstChild("Right Arm")
+    if hand then
+        bat.CFrame = hand.CFrame * CFrame.new(0,-2,-0.5) * CFrame.Angles(math.rad(90),0,0)
+        bat.Parent = c
+        local w = Instance.new("WeldConstraint")
+        w.Part0 = hand; w.Part1 = bat; w.Parent = bat
+        table.insert(appearanceSystem.extraParts, bat)
+    else bat:Destroy() end
+end
+
+creatures.ghost = function()
+    local c = plr.Character; if not c then return end
+    for _, p in ipairs(c:GetChildren()) do
+        if p:IsA("BasePart") then
+            saveAppearance(p)
+            p.Color = Color3.fromRGB(200,200,255)
+            p.Material = Enum.Material.ForceField
+            p.Transparency = 0.5
+        end
+    end
+    local head = c:FindFirstChild("Head")
+    if head then
+        for _, d in ipairs(head:GetChildren()) do
+            if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 1 end
+        end
+        local pe = Instance.new("ParticleEmitter")
+        pe.Texture = "rbxassetid://241876428"
+        pe.Rate = 30; pe.Lifetime = NumberRange.new(1,2)
+        pe.Speed = NumberRange.new(0,1)
+        pe.Size = NumberSequence.new(0.5)
+        pe.Color = ColorSequence.new(Color3.fromRGB(200,200,255))
+        pe.Transparency = NumberSequence.new(0.5)
+        pe.Parent = head
+        table.insert(appearanceSystem.extraParts, pe)
+    end
+end
+
+creatures.skeleton = function()
+    local c = plr.Character; if not c then return end
+    local bone = Color3.fromRGB(230,230,220)
+    for _, n in ipairs({"UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot","Head"}) do
+        paintPart(c:FindFirstChild(n), bone, Enum.Material.SmoothPlastic, Vector3.new(0.8,0.8,0.8))
+    end
+    local head = c:FindFirstChild("Head")
+    if head then
+        for _, d in ipairs(head:GetChildren()) do
+            if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 1 end
+        end
+    end
+end
+
+creatures.zombie = function()
+    local c = plr.Character; if not c then return end
+    local green = Color3.fromRGB(80,120,60)
+    local dark = Color3.fromRGB(50,80,40)
+    paintPart(c:FindFirstChild("UpperTorso"), green, Enum.Material.Sand)
+    paintPart(c:FindFirstChild("LowerTorso"), dark, Enum.Material.Sand)
+    for _, n in ipairs({"LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand"}) do
+        paintPart(c:FindFirstChild(n), green, Enum.Material.Sand)
+    end
+    for _, n in ipairs({"LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do
+        paintPart(c:FindFirstChild(n), dark, Enum.Material.Sand)
+    end
+    local head = c:FindFirstChild("Head")
+    if head then paintPart(head, green, Enum.Material.Sand) end
+    -- эффект гнили
+    local hrp = c:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local pe = Instance.new("ParticleEmitter")
+        pe.Texture = "rbxassetid://241876428"
+        pe.Rate = 10; pe.Lifetime = NumberRange.new(1,2)
+        pe.Speed = NumberRange.new(0.5,1)
+        pe.Size = NumberSequence.new(0.4)
+        pe.Color = ColorSequence.new(Color3.fromRGB(100,150,80))
+        pe.Transparency = NumberSequence.new(0.6)
+        pe.Parent = hrp
+        table.insert(appearanceSystem.extraParts, pe)
+    end
+end
+
+creatures.golem = function()
+    local c = plr.Character; if not c then return end
+    local stone = Color3.fromRGB(100,100,100)
+    local dark = Color3.fromRGB(60,60,60)
+    for _, n in ipairs({"UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","RightUpperArm","RightLowerArm"}) do
+        paintPart(c:FindFirstChild(n), stone, Enum.Material.Slate, Vector3.new(2,2,2))
+    end
+    for _, n in ipairs({"LeftUpperLeg","LeftLowerLeg","RightUpperLeg","RightLowerLeg"}) do
+        paintPart(c:FindFirstChild(n), dark, Enum.Material.Slate, Vector3.new(1.5,2,1.5))
+    end
+    paintPart(c:FindFirstChild("LeftHand"), dark, Enum.Material.Slate, Vector3.new(1.5,1.5,1.5))
+    paintPart(c:FindFirstChild("RightHand"), dark, Enum.Material.Slate, Vector3.new(1.5,1.5,1.5))
+    paintPart(c:FindFirstChild("Head"), stone, Enum.Material.Slate, Vector3.new(2,2,2))
+    local head = c:FindFirstChild("Head")
+    if head then
+        for _, d in ipairs(head:GetChildren()) do
+            if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 1 end
+        end
+    end
+end
+
+--=============================================================
 --  USER
 --=============================================================
 local userPage = addTab("user", "user", 1)
@@ -275,6 +468,7 @@ do
         local c = plr.Character or plr.CharacterAdded:Wait()
         return c:FindFirstChildOfClass("Humanoid")
     end
+
     makeSection(userPage, "Внешность", 1)
     makeToggle(userPage, "Фейк Headless", 2, function(on)
         local c = plr.Character; if not c then return end
@@ -285,21 +479,41 @@ do
             if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = on and 1 or 0 end
         end
     end)
+
+    -- KORBLOX — починенный
     makeToggle(userPage, "Фейк Korblox", 3, function(on)
         local c = plr.Character; if not c then return end
         local leg = c:FindFirstChild("RightUpperLeg") or c:FindFirstChild("Right Leg")
         if not leg then return end
         if on then
-            local m = Instance.new("SpecialMesh")
-            m.MeshType = Enum.MeshType.FileMesh
-            m.MeshId = "rbxassetid://1186899558"
-            m.Scale = Vector3.new(1,1,1); m.Name = "FakeKorblox"; m.Parent = leg
-            if leg:IsA("BasePart") then leg.Color = Color3.fromRGB(20,20,20) end
+            saveAppearance(leg)
+            if leg:IsA("MeshPart") then
+                -- R15: заменяем MeshId на Korblox-меш
+                pcall(function()
+                    leg.MeshId = "rbxassetid://1186899558"
+                end)
+                leg.Color = Color3.fromRGB(20,20,20)
+                leg.Material = Enum.Material.SmoothPlastic
+            else
+                -- R6: SpecialMesh
+                local m = Instance.new("SpecialMesh")
+                m.MeshType = Enum.MeshType.FileMesh
+                m.MeshId = "rbxassetid://1186899558"
+                m.Scale = Vector3.new(1,1,1); m.Name = "FakeKorblox"; m.Parent = leg
+                leg.Color = Color3.fromRGB(20,20,20)
+            end
         else
-            local m = leg:FindFirstChild("FakeKorblox"); if m then m:Destroy() end
-            if leg:IsA("BasePart") then leg.Color = Color3.fromRGB(163,162,165) end
+            if leg:IsA("MeshPart") then
+                pcall(function()
+                    leg.MeshId = "rbxassetid://0" -- Roblox сам подставит дефолт
+                end)
+            else
+                local m = leg:FindFirstChild("FakeKorblox"); if m then m:Destroy() end
+            end
+            leg.Color = Color3.fromRGB(163,162,165)
         end
     end)
+
     makeToggle(userPage, "Отключить анимации", 4, function(on)
         local c = plr.Character; if not c then return end
         local hum = c:FindFirstChildOfClass("Humanoid"); if not hum then return end
@@ -315,18 +529,63 @@ do
             if part:IsA("BasePart") then part.LocalTransparencyModifier = on and 1 or 0 end
         end
     end)
-    makeSection(userPage, "Движение", 10)
-    makeInput(userPage, "Скорость", 11, "16", function(v)
+
+    -- СУЩЕСТВА
+    makeSection(userPage, "Превратиться в существо", 17)
+    makeButton(userPage, "Tung Tung Tung Sahur", 18, function()
+        if appearanceSystem.activeCreature == "sahur" then restoreAppearance(); return end
+        restoreAppearance()
+        appearanceSystem.activeCreature = "sahur"
+        creatures.sahur()
+    end)
+    makeButton(userPage, "Призрак", 19, function()
+        if appearanceSystem.activeCreature == "ghost" then restoreAppearance(); return end
+        restoreAppearance()
+        appearanceSystem.activeCreature = "ghost"
+        creatures.ghost()
+    end)
+    makeButton(userPage, "Скелет", 20, function()
+        if appearanceSystem.activeCreature == "skeleton" then restoreAppearance(); return end
+        restoreAppearance()
+        appearanceSystem.activeCreature = "skeleton"
+        creatures.skeleton()
+    end)
+    makeButton(userPage, "Зомби", 21, function()
+        if appearanceSystem.activeCreature == "zombie" then restoreAppearance(); return end
+        restoreAppearance()
+        appearanceSystem.activeCreature = "zombie"
+        creatures.zombie()
+    end)
+    makeButton(userPage, "Каменный голем", 22, function()
+        if appearanceSystem.activeCreature == "golem" then restoreAppearance(); return end
+        restoreAppearance()
+        appearanceSystem.activeCreature = "golem"
+        creatures.golem()
+    end)
+    makeButton(userPage, "Вернуть обычный вид", 23, restoreAppearance)
+
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.6)
+        if appearanceSystem.activeCreature and creatures[appearanceSystem.activeCreature] then
+            appearanceSystem.saved = {}
+            appearanceSystem.extraParts = {}
+            creatures[appearanceSystem.activeCreature]()
+        end
+    end)
+
+    makeSection(userPage, "Движение", 30)
+    makeInput(userPage, "Скорость", 31, "16", function(v)
         local h = getHum(); if h and tonumber(v) then h.WalkSpeed = tonumber(v) end
     end)
-    makeInput(userPage, "Прыжок", 12, "50", function(v)
+    makeInput(userPage, "Прыжок", 32, "50", function(v)
         local h = getHum(); if h and tonumber(v) then h.JumpPower = tonumber(v) end
     end)
-    makeToggle(userPage, "Бесконечный прыжок", 13, function(on) infiniteJump = on end)
+    makeToggle(userPage, "Бесконечный прыжок", 33, function(on) infiniteJump = on end)
+
     local spinning = false
     local spinSpeed = 180
-    makeToggle(userPage, "Спин по Y", 14, function(on) spinning = on end)
-    makeInput(userPage, "Скорость спина (°/сек)", 15, "180", function(v)
+    makeToggle(userPage, "Спин по Y", 34, function(on) spinning = on end)
+    makeInput(userPage, "Скорость спина (°/сек)", 35, "180", function(v)
         if tonumber(v) then spinSpeed = tonumber(v) end
     end)
     RunService.RenderStepped:Connect(function(dt)
@@ -334,8 +593,9 @@ do
         local c = plr.Character; if not c or not c.PrimaryPart then return end
         c:PivotTo(c:GetPivot() * CFrame.Angles(0, math.rad(spinSpeed)*dt, 0))
     end)
+
     local backWalk = false
-    makeToggle(userPage, "Идти спиной (Shift Lock)", 16, function(on)
+    makeToggle(userPage, "Идти спиной (Shift Lock)", 36, function(on)
         backWalk = on
         local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
         if hum then hum.AutoRotate = not on end
@@ -356,39 +616,6 @@ do
         local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
         if h and not backWalk then h.AutoRotate = true end
     end)
-
-    makeSection(userPage, "Фан", 20)
-    makeButton(userPage, "Салют (частицы)", 21, function()
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        for i = 1, 5 do
-            local p = Instance.new("Part")
-            p.Size = Vector3.new(0.5,0.5,0.5)
-            p.Color = Color3.fromHSV(math.random(),1,1)
-            p.Anchored = true; p.CanCollide = false
-            p.Position = c.PrimaryPart.Position + Vector3.new(math.random(-5,5), math.random(2,5), math.random(-5,5))
-            p.Parent = workspace
-            task.spawn(function()
-                for j = 1, 20 do
-                    p.Position = p.Position + Vector3.new(0,0.2,0)
-                    p.Transparency = j/20
-                    task.wait(0.03)
-                end
-                p:Destroy()
-            end)
-        end
-    end)
-    makeButton(userPage, "Призрак (партиклы)", 22, function()
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        local pe = Instance.new("ParticleEmitter")
-        pe.Texture = "rbxassetid://241876428"
-        pe.Rate = 50; pe.Lifetime = NumberRange.new(0.5,1)
-        pe.Speed = NumberRange.new(1,3)
-        pe.Size = NumberSequence.new(1)
-        pe.Transparency = NumberSequence.new(0.5)
-        pe.Color = ColorSequence.new(Color3.fromRGB(150,150,255))
-        pe.Parent = c.PrimaryPart
-        task.delay(5, function() if pe then pe:Destroy() end end)
-    end)
 end
 
 local infiniteJump = false
@@ -400,23 +627,20 @@ UIS.JumpRequest:Connect(function()
 end)
 
 --=============================================================
---  VISUAL — погода, вода, отражения, фильтры, ауры, FOV
+--  VISUAL
 --=============================================================
 local visualPage = addTab("visual", "visual", 2)
 do
     local function resetLighting()
         Lighting.Brightness = 2; Lighting.FogEnd = 100000; Lighting.FogStart = 0
         Lighting.FogColor = Color3.fromRGB(192,192,192); Lighting.ClockTime = 14
-        Lighting.Ambient = Color3.fromRGB(0,0,0)
-        Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
     end
     local function clearWeather()
-        for _, n in ipairs({"WeatherRain","WeatherSnow","WeatherFog","WeatherStars"}) do
+        for _, n in ipairs({"WeatherRain","WeatherSnow","WeatherStars"}) do
             local o = workspace:FindFirstChild(n); if o then o:Destroy() end
         end
     end
 
-    -- ПОГОДА
     makeSection(visualPage, "Погода", 1)
     local function setRain(on)
         clearWeather()
@@ -426,9 +650,12 @@ do
         rain.Name = "WeatherRain"; rain.Size = Vector3.new(2000,1,2000); rain.Transparency = 1
         rain.CanCollide = false; rain.Anchored = true; rain.Parent = workspace
         local em = Instance.new("ParticleEmitter")
-        em.Texture = "rbxassetid://241876428"; em.Rate = 1000; em.Lifetime = NumberRange.new(0.6,1)
-        em.Speed = NumberRange.new(80,120); em.SpreadAngle = Vector2.new(5,5)
-        em.Size = NumberSequence.new(0.6); em.Transparency = NumberSequence.new(0.4); em.Parent = rain
+        em.Texture = "rbxassetid://241876428"; em.Rate = 1000
+        em.Lifetime = NumberRange.new(0.6,1)
+        em.Speed = NumberRange.new(80,120)
+        em.SpreadAngle = Vector2.new(5,5)
+        em.Size = NumberSequence.new(0.6); em.Transparency = NumberSequence.new(0.4)
+        em.Parent = rain
         local conn; conn = RunService.Heartbeat:Connect(function()
             if not rain.Parent then conn:Disconnect(); return end
             local c = plr.Character
@@ -461,7 +688,7 @@ do
     makeToggle(visualPage, "Снег", 3, setSnow)
 
     local lightningOn = false
-    makeToggle(visualPage, "Гроза (молнии)", 4, function(on) lightningOn = on end)
+    makeToggle(visualPage, "Гроза", 4, function(on) lightningOn = on end)
     task.spawn(function()
         while true do
             task.wait(math.random(4,10))
@@ -476,7 +703,7 @@ do
     makeToggle(visualPage, "Солнечно", 5, function(on)
         if on then resetLighting(); Lighting.Brightness = 4; Lighting.ClockTime = 12 end
     end)
-    makeToggle(visualPage, "Метель (туман 50 studs)", 6, function(on)
+    makeToggle(visualPage, "Метель", 6, function(on)
         clearWeather()
         if not on then resetLighting(); return end
         Lighting.FogEnd = 50; Lighting.FogStart = 0
@@ -489,174 +716,6 @@ do
         else resetLighting() end
     end)
 
-    -- ВОДА И ОТРАЖЕНИЯ
-    makeSection(visualPage, "Вода / Отражения", 100)
-    local waterParts = {}
-    local mirrorClone = nil
-    local rippleConn = nil
-
-    local function makeReflectiveWater()
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        for _, p in ipairs(waterParts) do if p then p:Destroy() end end
-        waterParts = {}
-        local basePos = c.PrimaryPart.Position
-        local water = Instance.new("Part")
-        water.Name = "MyUI_Water"
-        water.Size = Vector3.new(200, 0.2, 200)
-        water.CFrame = CFrame.new(basePos.X, basePos.Y - 3, basePos.Z)
-        water.Anchored = true; water.CanCollide = false
-        water.Transparency = 0.4
-        water.Reflectance = 0.8
-        water.Material = Enum.Material.Glass
-        water.Color = Color3.fromRGB(40,80,140)
-        water.Parent = workspace
-        table.insert(waterParts, water)
-        local deep = Instance.new("Part")
-        deep.Size = Vector3.new(200, 0.1, 200)
-        deep.CFrame = CFrame.new(basePos.X, basePos.Y - 6, basePos.Z)
-        deep.Anchored = true; deep.CanCollide = false
-        deep.Transparency = 0.6; deep.Reflectance = 0.5
-        deep.Color = Color3.fromRGB(20,40,90)
-        deep.Material = Enum.Material.Glass
-        deep.Parent = workspace
-        table.insert(waterParts, deep)
-    end
-
-    local function makeMirrorClone()
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        if mirrorClone then mirrorClone:Destroy(); mirrorClone = nil end
-        local clone = c:Clone()
-        clone.Name = "MyUI_Mirror"
-        for _, d in ipairs(clone:GetDescendants()) do
-            if d:IsA("BasePart") then
-                d.Anchored = true; d.CanCollide = false
-                d.Transparency = 0.5; d.Material = Enum.Material.Glass
-            elseif d:IsA("Script") or d:IsA("LocalScript") then
-                d:Destroy()
-            end
-        end
-        clone.Parent = workspace
-        mirrorClone = clone
-    end
-
-    local function updateMirror()
-        if not mirrorClone then return end
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        local baseY = c.PrimaryPart.Position.Y
-        local waterY = baseY - 3
-        for _, part in ipairs(mirrorClone:GetDescendants()) do
-            if part:IsA("BasePart") then
-                local origPart = c:FindFirstChild(part.Name)
-                if origPart then
-                    part.CFrame = CFrame.new(origPart.Position.X, waterY - (origPart.Position.Y - waterY), origPart.Position.Z) * origPart.CFrame.Rotation
-                end
-            end
-        end
-    end
-
-    local function makeRipples()
-        if rippleConn then rippleConn:Disconnect(); rippleConn = nil end
-        local lastPos = nil
-        rippleConn = RunService.Heartbeat:Connect(function()
-            local c = plr.Character; if not c or not c.PrimaryPart then return end
-            local pos = c.PrimaryPart.Position
-            if lastPos and (pos - lastPos).Magnitude > 2 then
-                lastPos = pos
-                local ripple = Instance.new("Part")
-                ripple.Size = Vector3.new(1,0.05,1)
-                ripple.Shape = Enum.PartType.Cylinder
-                ripple.CFrame = CFrame.new(pos.X, pos.Y - 2.9, pos.Z) * CFrame.Angles(0,0,math.rad(90))
-                ripple.Color = Color3.fromRGB(100,150,200)
-                ripple.Material = Enum.Material.Neon
-                ripple.Anchored = true; ripple.CanCollide = false
-                ripple.Transparency = 0.3
-                ripple.Parent = workspace
-                task.spawn(function()
-                    for i = 1, 15 do
-                        ripple.Size = Vector3.new(1 + i*2, 0.05, 1 + i*2)
-                        ripple.Transparency = 0.3 + i*0.04
-                        task.wait(0.05)
-                    end
-                    ripple:Destroy()
-                end)
-            elseif not lastPos then
-                lastPos = pos
-            end
-        end)
-    end
-
-    makeToggle(visualPage, "Зеркальная вода", 101, function(on)
-        if on then makeReflectiveWater()
-        else
-            for _, p in ipairs(waterParts) do if p then p:Destroy() end end
-            waterParts = {}
-        end
-    end)
-    makeToggle(visualPage, "Отражение персонажа", 102, function(on)
-        if on then
-            makeMirrorClone()
-            RunService.Heartbeat:Connect(updateMirror)
-        else
-            if mirrorClone then mirrorClone:Destroy(); mirrorClone = nil end
-        end
-    end)
-    makeToggle(visualPage, "Круги от шагов", 103, function(on)
-        if on then makeRipples()
-        else if rippleConn then rippleConn:Disconnect(); rippleConn = nil end end
-    end)
-    makeInput(visualPage, "Прозрачность воды", 104, "0.4", function(v)
-        if tonumber(v) then
-            for _, p in ipairs(waterParts) do
-                if p and p.Name == "MyUI_Water" then p.Transparency = tonumber(v) end
-            end
-        end
-    end)
-    makeInput(visualPage, "Отражательность (0-1)", 105, "0.8", function(v)
-        if tonumber(v) then
-            for _, p in ipairs(waterParts) do if p then p.Reflectance = tonumber(v) end end
-        end
-    end)
-
-    -- ОТРАЖЕНИЯ ОТ ПРЕДМЕТОВ
-    makeSection(visualPage, "Отражения от предметов", 110)
-    local reflRadius = 50
-    local function applyReflectance(radius, val)
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        local basePos = c.PrimaryPart.Position
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj ~= c.PrimaryPart then
-                if (obj.Position - basePos).Magnitude < radius then
-                    if not obj:GetAttribute("MyUI_OrigRefl") then
-                        obj:SetAttribute("MyUI_OrigRefl", obj.Reflectance)
-                        obj:SetAttribute("MyUI_OrigMat", tostring(obj.Material))
-                    end
-                    obj.Reflectance = val
-                    obj.Material = Enum.Material.Glass
-                end
-            end
-        end
-    end
-    local function clearReflectance()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj:GetAttribute("MyUI_OrigRefl") ~= nil then
-                obj.Reflectance = obj:GetAttribute("MyUI_OrigRefl")
-                local mat = obj:GetAttribute("MyUI_OrigMat")
-                if mat then
-                    local ok, m = pcall(function() return Enum.Material[mat] end)
-                    if ok and m then obj.Material = m end
-                end
-                obj:SetAttribute("MyUI_OrigRefl", nil)
-                obj:SetAttribute("MyUI_OrigMat", nil)
-            end
-        end
-    end
-    makeInput(visualPage, "Радиус (studs)", 111, "50", function(v)
-        if tonumber(v) then reflRadius = tonumber(v) end
-    end)
-    makeButton(visualPage, "Сделать предметы глянцевыми", 112, function() applyReflectance(reflRadius, 0.7) end)
-    makeButton(visualPage, "Убрать отражения с предметов", 113, clearReflectance)
-
-    -- ОСВЕЩЕНИЕ
     makeSection(visualPage, "Освещение", 10)
     makeInput(visualPage, "Brightness", 11, "2", function(v)
         if tonumber(v) then Lighting.Brightness = tonumber(v) end
@@ -664,10 +723,7 @@ do
     makeInput(visualPage, "ClockTime", 12, "14", function(v)
         if tonumber(v) then Lighting.ClockTime = tonumber(v) end
     end)
-    makeInput(visualPage, "Fog End", 13, "100000", function(v)
-        if tonumber(v) then Lighting.FogEnd = tonumber(v) end
-    end)
-    makeToggle(visualPage, "Ночное зрение", 15, function(on)
+    makeToggle(visualPage, "Ночное зрение", 13, function(on)
         if on then
             Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
             Lighting.Ambient = Color3.fromRGB(200,200,200)
@@ -677,7 +733,6 @@ do
         end
     end)
 
-    -- ЦВЕТОВЫЕ ФИЛЬТРЫ
     makeSection(visualPage, "Цветовые фильтры", 20)
     local filters = {
         {name = "Красный", color = Color3.fromRGB(255,100,100), contrast = 0.2, saturation = 0.5},
@@ -709,7 +764,6 @@ do
         if currentFilter then currentFilter:Destroy(); currentFilter = nil end
     end)
 
-    -- ЭФФЕКТЫ ЭКРАНА
     makeSection(visualPage, "Эффекты экрана", 30)
     makeToggle(visualPage, "Bloom", 31, function(on)
         local e = Lighting:FindFirstChildOfClass("BloomEffect")
@@ -724,48 +778,8 @@ do
             local b = Instance.new("BlurEffect"); b.Size = 12; b.Parent = Lighting
         elseif not on and e then e:Destroy() end
     end)
-    makeToggle(visualPage, "Depth of Field", 33, function(on)
-        local d = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
-        if on and not d then
-            local dof = Instance.new("DepthOfFieldEffect")
-            dof.FarIntensity = 0.5; dof.FocusDistance = 20; dof.NearIntensity = 0.3
-            dof.Parent = Lighting
-        elseif not on and d then d:Destroy() end
-    end)
-    makeToggle(visualPage, "Sun Rays", 34, function(on)
-        local s = Lighting:FindFirstChildOfClass("SunRaysEffect")
-        if on and not s then
-            local sr = Instance.new("SunRaysEffect")
-            sr.Intensity = 0.2; sr.Spread = 0.5; sr.Parent = Lighting
-        elseif not on and s then s:Destroy() end
-    end)
 
-    -- СПЕЦЭФФЕКТЫ
-    makeSection(visualPage, "Спецэффекты", 50)
-    makeButton(visualPage, "Ударить молнией", 51, function()
-        local old = Lighting.Brightness
-        Lighting.Brightness = 8
-        task.wait(0.06)
-        Lighting.Brightness = old
-        local s = Instance.new("Sound")
-        s.SoundId = "rbxassetid://9120386436"; s.Volume = 2
-        s.Parent = workspace; s:Play()
-        task.delay(2, function() s:Destroy() end)
-    end)
-    makeButton(visualPage, "Тряска экрана", 52, function()
-        local cam = workspace.CurrentCamera
-        local orig = cam.CFrame
-        task.spawn(function()
-            for i = 1, 10 do
-                cam.CFrame = orig * CFrame.new(math.random(-5,5)/10, math.random(-5,5)/10, 0)
-                task.wait(0.05)
-            end
-            cam.CFrame = orig
-        end)
-    end)
-
-    -- АУРЫ
-    makeSection(visualPage, "Частицы вокруг персонажа", 70)
+    makeSection(visualPage, "Ауры", 40)
     local activeEmitters = {}
     local function makeAura(name, color, size)
         local c = plr.Character; if not c or not c.PrimaryPart then return end
@@ -781,22 +795,18 @@ do
         pe.Parent = c.PrimaryPart
         activeEmitters[name] = pe
     end
-    makeButton(visualPage, "Огонь", 71, function() makeAura("FireAura", Color3.fromRGB(255,100,0), 0.8) end)
-    makeButton(visualPage, "Лёд", 72, function() makeAura("IceAura", Color3.fromRGB(100,200,255), 0.6) end)
-    makeButton(visualPage, "Молния", 73, function() makeAura("LightAura", Color3.fromRGB(255,255,150), 0.5) end)
-    makeButton(visualPage, "Смерть", 74, function() makeAura("DeathAura", Color3.fromRGB(50,0,50), 0.7) end)
-    makeButton(visualPage, "Убрать все", 75, function()
+    makeButton(visualPage, "Огонь", 41, function() makeAura("Fire", Color3.fromRGB(255,100,0), 0.8) end)
+    makeButton(visualPage, "Лёд", 42, function() makeAura("Ice", Color3.fromRGB(100,200,255), 0.6) end)
+    makeButton(visualPage, "Молния", 43, function() makeAura("Light", Color3.fromRGB(255,255,150), 0.5) end)
+    makeButton(visualPage, "Смерть", 44, function() makeAura("Death", Color3.fromRGB(50,0,50), 0.7) end)
+    makeButton(visualPage, "Убрать все", 45, function()
         for _, pe in pairs(activeEmitters) do if pe then pe:Destroy() end end
         activeEmitters = {}
     end)
 
-    -- FOV
-    makeSection(visualPage, "FOV камеры", 80)
-    makeInput(visualPage, "Значение", 81, "70", function(v)
+    makeSection(visualPage, "FOV", 50)
+    makeInput(visualPage, "FOV", 51, "70", function(v)
         if tonumber(v) then camera.FieldOfView = tonumber(v) end
-    end)
-    makeButton(visualPage, "Сброс FOV (70)", 82, function()
-        camera.FieldOfView = 70
     end)
 end
 
@@ -805,18 +815,11 @@ end
 --=============================================================
 local espPage = addTab("esp", "esp", 3)
 do
-    local highlights, nickGuis, hpGuis, tracers, skeletons = {}, {}, {}, {}, {}
+    local highlights, nickGuis, hpGuis = {}, {}, {}
     local espEnabled = false
-    local showTracer, showSkeleton, showNick, showHP = false, false, false, false
+    local showNick, showHP = false, false
     local espColor = Color3.fromRGB(0,200,255)
 
-    local function makeDrawing(class, props)
-        if not Drawing then return nil end
-        local ok, d = pcall(function() return Drawing.new(class) end)
-        if not ok then return nil end
-        for k,v in pairs(props or {}) do d[k] = v end
-        return d
-    end
     local function getChar(p)
         local c = p.Character
         if c and c:FindFirstChild("HumanoidRootPart") then return c end
@@ -825,9 +828,7 @@ do
         for _, h in pairs(highlights) do if h then h:Destroy() end end
         for _, g in pairs(nickGuis) do if g then g:Destroy() end end
         for _, g in pairs(hpGuis) do if g then g:Destroy() end end
-        for _, list in pairs(tracers) do for _, d in ipairs(list) do if d.Remove then d:Remove() end end end
-        for _, list in pairs(skeletons) do for _, d in ipairs(list) do if d.Remove then d:Remove() end end end
-        highlights, nickGuis, hpGuis, tracers, skeletons = {}, {}, {}, {}, {}
+        highlights, nickGuis, hpGuis = {}, {}, {}
     end
     local function buildFor(p)
         local char = getChar(p); if not char then return end
@@ -871,71 +872,15 @@ do
         end
     end
 
-    RunService.RenderStepped:Connect(function()
-        if not espEnabled then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p == plr then continue end
-            local char = getChar(p); if not char then continue end
-            local hrp = char.HumanoidRootPart
-            local screen, onScreen = camera:WorldToViewportPoint(hrp.Position)
-            if showTracer then
-                local line = tracers[p]
-                if not line then
-                    local d = makeDrawing("Line", {Thickness = 1.5, Color = espColor, Transparency = 1})
-                    if d then tracers[p] = {d} end
-                elseif onScreen then
-                    line[1].From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-                    line[1].To = Vector2.new(screen.X, screen.Y)
-                    line[1].Color = espColor; line[1].Visible = true
-                else line[1].Visible = false end
-            elseif tracers[p] then
-                for _, d in ipairs(tracers[p]) do if d.Remove then d:Remove() end end
-                tracers[p] = nil
-            end
-            local connections = {
-                {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
-                {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
-                {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
-                {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
-                {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
-            }
-            if showSkeleton then
-                if not skeletons[p] then
-                    local list = {}
-                    for i = 1, #connections do
-                        list[i] = makeDrawing("Line", {Thickness = 1, Color = espColor, Transparency = 1})
-                    end
-                    skeletons[p] = list
-                end
-                for i, pair in ipairs(connections) do
-                    local a = char:FindFirstChild(pair[1]); local b = char:FindFirstChild(pair[2])
-                    local line = skeletons[p][i]
-                    if a and b and line then
-                        local aS, aOn = camera:WorldToViewportPoint(a.Position)
-                        local bS, bOn = camera:WorldToViewportPoint(b.Position)
-                        if aOn and bOn then
-                            line.From = Vector2.new(aS.X, aS.Y); line.To = Vector2.new(bS.X, bS.Y)
-                            line.Color = espColor; line.Visible = true
-                        else line.Visible = false end
-                    end
-                end
-            elseif skeletons[p] then
-                for _, d in ipairs(skeletons[p]) do if d.Remove then d:Remove() end end
-                skeletons[p] = nil
-            end
-        end
-    end)
-
     makeToggle(espPage, "ESP (Highlight)", 1, function(on)
         espEnabled = on
         if on then for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end
         else clearAll() end
     end)
-    makeToggle(espPage, "Трейсер", 2, function(on) showTracer = on end)
-    makeToggle(espPage, "Скелет", 3, function(on) showSkeleton = on end)
-    makeToggle(espPage, "Ник", 4, function(on) showNick = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
-    makeToggle(espPage, "HP-бар", 5, function(on) showHP = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
-    makeSection(espPage, "Цвет ESP", 10)
+    makeToggle(espPage, "Ник", 2, function(on) showNick = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
+    makeToggle(espPage, "HP-бар", 3, function(on) showHP = on; for _,p in ipairs(Players:GetPlayers()) do if p ~= plr then buildFor(p) end end end)
+
+    makeSection(espPage, "Цвет", 10)
     local presetRow = new("Frame", {Size = UDim2.new(1,-16,0,28), BackgroundTransparency = 1, LayoutOrder = 11}, espPage)
     new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,4),
         SortOrder = Enum.SortOrder.LayoutOrder}, presetRow)
@@ -1042,26 +987,13 @@ do
         end
     end
 
-    makeSection(flyPage, "Fly (WASD + Space/Ctrl)", 1)
-    makeInput(flyPage, "Скорость полёта", 2, "50", function(v)
+    makeSection(flyPage, "Fly", 1)
+    makeInput(flyPage, "Скорость", 2, "50", function(v)
         if tonumber(v) then flySpeed = tonumber(v) end
     end)
     makeToggle(flyPage, "Fly вкл/выкл", 3, function(on)
         flying = on
         if on then startFly() else stopFly() end
-    end)
-    makeSection(flyPage, "Прыжок-полёт", 10)
-    local hopFly = false
-    makeToggle(flyPage, "Прыжок с полётом", 11, function(on) hopFly = on end)
-    UIS.JumpRequest:Connect(function()
-        if not hopFly then return end
-        local c = plr.Character; if not c then return end
-        local hrp = c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-        bv.Velocity = Vector3.new(0, 80, 0)
-        bv.Parent = hrp
-        task.delay(0.5, function() if bv then bv:Destroy() end end)
     end)
 end
 
@@ -1107,7 +1039,7 @@ do
     Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshPlayers() end)
     makeButton(tpPage, "Обновить список", 3, refreshPlayers)
 
-    makeSection(tpPage, "Телепорт к координатам", 10)
+    makeSection(tpPage, "Координаты", 10)
     local cx, cy, cz = 0, 0, 0
     makeInput(tpPage, "X", 11, "0", function(v) cx = tonumber(v) or 0 end)
     makeInput(tpPage, "Y", 12, "0", function(v) cy = tonumber(v) or 0 end)
@@ -1117,43 +1049,13 @@ do
         c:PivotTo(CFrame.new(cx, cy, cz))
     end)
 
-    makeSection(tpPage, "Клик по месту в мире", 20)
-    local tpClicking = false
-    local tpClickBtn = makeButton(tpPage, "Включить клик-телепорт", 21, function()
-        tpClicking = not tpClicking
-        tpClickBtn.Text = tpClicking and "Выключить клик-телепорт" or "Включить клик-телепорт"
-    end)
-    UIS.InputBegan:Connect(function(input, gp)
-        if gp or not tpClicking then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        local m = plr:GetMouse()
-        if m.Hit then
-            local c = plr.Character; if not c or not c.PrimaryPart then return end
-            c:PivotTo(CFrame.new(m.Hit.Position + Vector3.new(0,3,0)))
-        end
-    end)
-
-    makeSection(tpPage, "Телепорт к объекту по имени", 30)
-    local objName = nil
-    makeInput(tpPage, "Имя объекта", 31, "Part", function(v) objName = v end)
-    makeButton(tpPage, "Найти и телепорт", 32, function()
-        if not objName then return end
-        local c = plr.Character; if not c or not c.PrimaryPart then return end
-        for _, o in ipairs(workspace:GetDescendants()) do
-            if o.Name == objName and o:IsA("BasePart") then
-                c:PivotTo(CFrame.new(o.Position + Vector3.new(0,3,0)))
-                break
-            end
-        end
-    end)
-
-    makeSection(tpPage, "Сохранение позиции", 40)
+    makeSection(tpPage, "Сохранение позиции", 20)
     local savedPos = nil
-    makeButton(tpPage, "Сохранить позицию", 41, function()
+    makeButton(tpPage, "Сохранить", 21, function()
         local c = plr.Character; if not c or not c.PrimaryPart then return end
         savedPos = c.PrimaryPart.Position
     end)
-    makeButton(tpPage, "Вернуться к сохранённой", 42, function()
+    makeButton(tpPage, "Вернуться", 22, function()
         if not savedPos then return end
         local c = plr.Character; if not c or not c.PrimaryPart then return end
         c:PivotTo(CFrame.new(savedPos + Vector3.new(0,3,0)))
@@ -1202,7 +1104,7 @@ do
     refreshAimList()
     Players.PlayerAdded:Connect(refreshAimList)
     Players.PlayerRemoving:Connect(function() task.wait(0.1); refreshAimList() end)
-    makeButton(aimPage, "Обновить список", 4, refreshAimList)
+    makeButton(aimPage, "Обновить", 4, refreshAimList)
     makeToggle(aimPage, "Aim вкл/выкл", 5, function(on) aimEnabled = on end)
     RunService.RenderStepped:Connect(function()
         if not aimEnabled or not aimTarget then return end
@@ -1222,7 +1124,7 @@ do
     makeSection(miscPage, "Чат", 1)
     local chatMsg = "Привет!"
     makeInput(miscPage, "Текст", 2, "Привет!", function(v) chatMsg = v end)
-    makeButton(miscPage, "Отправить в чат", 3, function()
+    makeButton(miscPage, "Отправить", 3, function()
         local ev = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
         if ev then
             local say = ev:FindFirstChild("SayMessageRequest")
@@ -1235,7 +1137,7 @@ do
         game:GetService("TeleportService"):Teleport(game.PlaceId, plr)
     end)
 
-    makeSection(miscPage, "Информация о сервере", 20)
+    makeSection(miscPage, "Информация", 20)
     local infoLabel = new("TextLabel", {
         Size = UDim2.new(1,-16,0,80), BackgroundTransparency = 1,
         Text = "", TextColor3 = Color3.fromRGB(200,200,200),
@@ -1256,13 +1158,7 @@ do
         local h = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
         if h then h.Health = 0 end
     end)
-    makeButton(miscPage, "Сыграть звук", 32, function()
-        local s = Instance.new("Sound")
-        s.SoundId = "rbxassetid://9120386436"; s.Volume = 2
-        s.Parent = workspace; s:Play()
-        task.delay(3, function() s:Destroy() end)
-    end)
-    makeToggle(miscPage, "Увеличить хитбокс", 33, function(on)
+    makeToggle(miscPage, "Увеличить хитбокс", 32, function(on)
         local c = plr.Character; if not c then return end
         local hrp = c:FindFirstChild("HumanoidRootPart"); if not hrp then return end
         if on then
@@ -1293,4 +1189,4 @@ toggle.MouseButton1Click:Connect(function()
     end
 end)
 
-print("[MyUI v9] loaded | icon:", ICON_ID)
+print("[MyUI v10] loaded | icon:", ICON_ID)
